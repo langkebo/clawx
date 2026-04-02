@@ -1,0 +1,13 @@
+# .github/workflows/test.yml 建议
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: pnpm install
+      - run: pnpm build
+      - run: pnpm test -- --exclude "**/docker-setup.test.ts" --exclude "**/twitch/**" --exclude "**/nostr/**"
