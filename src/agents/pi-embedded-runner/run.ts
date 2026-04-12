@@ -473,6 +473,7 @@ export async function runEmbeddedPiAgent(
       const MAX_OVERFLOW_COMPACTION_ATTEMPTS = 3;
       let overflowCompactionAttempts = 0;
       let toolResultTruncationAttempted = false;
+      let vikingPreviousToolError: { missingToolName?: string; errorMessage?: string } | undefined;
       const usageAccumulator = createUsageAccumulator();
       let lastRunPromptUsage: ReturnType<typeof normalizeUsage> | undefined;
       let autoCompactionCount = 0;
@@ -541,6 +542,7 @@ export async function runEmbeddedPiAgent(
             streamParams: params.streamParams,
             ownerNumbers: params.ownerNumbers,
             enforceFinalTag: params.enforceFinalTag,
+            previousToolError: vikingPreviousToolError,
           });
 
           const {
@@ -560,6 +562,17 @@ export async function runEmbeddedPiAgent(
           const lastTurnTotal = lastAssistantUsage?.total ?? attemptUsage?.total;
           const attemptCompactionCount = Math.max(0, attempt.compactionCount ?? 0);
           autoCompactionCount += attemptCompactionCount;
+
+          // Viking P5: 收集工具缺失信息，传递给下一次 attempt
+          if (attempt.vikingMissingTool) {
+            vikingPreviousToolError = {
+              missingToolName: attempt.vikingMissingTool,
+              errorMessage: attempt.lastToolError?.error,
+            };
+          } else {
+            vikingPreviousToolError = undefined;
+          }
+
           const activeErrorContext = resolveActiveErrorContext({
             lastAssistant,
             provider,

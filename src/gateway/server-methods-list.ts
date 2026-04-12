@@ -71,6 +71,7 @@ const BASE_METHODS = [
   "node.list",
   "node.describe",
   "node.invoke",
+  "commands.list",
   "node.invoke.result",
   "node.event",
   "cron.list",

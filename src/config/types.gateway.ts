@@ -267,6 +267,12 @@ export type GatewayNodesConfig = {
   allowCommands?: string[];
   /** Commands to deny even if they appear in the defaults or node claims. */
   denyCommands?: string[];
+  /**
+   * Allow node connections from private/internal network addresses.
+   * When false (default), SSRF protection blocks connections to private IPs.
+   * Set to true to allow nodes on local networks (e.g., 192.168.x.x, 10.x.x.x).
+   */
+  allowPrivateNetwork?: boolean;
 };
 
 export type GatewayToolsConfig = {

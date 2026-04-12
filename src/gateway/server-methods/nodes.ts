@@ -430,6 +430,13 @@ export const nodeHandlers: GatewayRequestHandlers = {
       );
     });
   },
+  "commands.list": async ({ params, respond, context }) => {
+    await respondUnavailableOnThrow(respond, async () => {
+      const connected = context.nodeRegistry.listConnected();
+      const commands = uniqueSortedStrings(connected.flatMap((n) => n.commands ?? []));
+      respond(true, { ts: Date.now(), commands }, undefined);
+    });
+  },
   "node.invoke": async ({ params, respond, context, client }) => {
     if (!validateNodeInvokeParams(params)) {
       respondInvalidParams({

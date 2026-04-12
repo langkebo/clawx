@@ -76,6 +76,11 @@ apps/ios/*.mobileprovision
 docs/.local/
 .tgz
 .idea
+.viking-backup/
+build/
+.openclaw-dev/
+.openclaw/
+.viking/rules/
 
 # local tooling
 .serena/

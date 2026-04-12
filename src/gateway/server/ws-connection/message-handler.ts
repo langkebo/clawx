@@ -34,6 +34,7 @@ import { buildDeviceAuthPayload } from "../../device-auth.js";
 import { isLoopbackAddress, isTrustedProxyAddress, resolveGatewayClientIp } from "../../net.js";
 import { resolveHostName } from "../../net.js";
 import { resolveNodeCommandAllowlist } from "../../node-command-policy.js";
+import { isPrivateIpAddress } from "../../../infra/net/ssrf.js";
 import { checkBrowserOrigin } from "../../origin-check.js";
 import { GATEWAY_CLIENT_IDS } from "../../protocol/client-info.js";
 import {
@@ -827,6 +828,15 @@ export function attachGatewayWsMessageHandler(params: {
         setHandshakeState("connected");
         if (role === "node") {
           const context = buildRequestContext();
+          const cfg = loadConfig();
+          const allowPrivateNetwork = cfg.gateway?.nodes?.allowPrivateNetwork === true;
+          if (!allowPrivateNetwork && reportedClientIp && isPrivateIpAddress(reportedClientIp)) {
+            logGateway.warn(
+              `rejected node connection from private IP ${reportedClientIp} (allowPrivateNetwork=false)`,
+            );
+            socket.close(4403, "private network not allowed");
+            return;
+          }
           const nodeSession = context.nodeRegistry.register(nextClient, {
             remoteIp: reportedClientIp,
           });

@@ -101,4 +101,8 @@ export type RunEmbeddedPiAgentParams = {
   streamParams?: AgentStreamParams;
   ownerNumbers?: string[];
   enforceFinalTag?: boolean;
+  previousToolError?: {
+    missingToolName?: string;
+    errorMessage?: string;
+  };
 };

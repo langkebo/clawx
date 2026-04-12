@@ -40,6 +40,7 @@ export type EmbeddedRunAttemptResult = {
     mutatingAction?: boolean;
     actionFingerprint?: string;
   };
+  vikingMissingTool?: string;
   didSendViaMessagingTool: boolean;
   messagingToolSentTexts: string[];
   messagingToolSentMediaUrls: string[];

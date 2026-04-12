@@ -36,6 +36,7 @@ export type EmbeddedPiSubscribeState = {
   toolMetaById: Map<string, ToolCallSummary>;
   toolSummaryById: Set<string>;
   lastToolError?: ToolErrorSummary;
+  vikingMissingTool?: string;
 
   blockReplyBreak: "text_end" | "message_end";
   reasoningMode: ReasoningLevel;
@@ -140,6 +141,7 @@ export type ToolHandlerState = Pick<
   | "toolMetas"
   | "toolSummaryById"
   | "lastToolError"
+  | "vikingMissingTool"
   | "pendingMessagingTargets"
   | "pendingMessagingTexts"
   | "pendingMessagingMediaUrls"

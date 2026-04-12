@@ -3,21 +3,26 @@ import { resolvePluginTools } from "../plugins/tools.js";
 import type { GatewayMessageChannel } from "../utils/message-channel.js";
 import { resolveSessionAgentId } from "./agent-scope.js";
 import type { SandboxFsBridge } from "./sandbox/fs-bridge.js";
+import { createActiveMemoryRecallTool, createActiveMemorySaveTool } from "./tools/active-memory-tool.js";
 import { createAgentsListTool } from "./tools/agents-list-tool.js";
 import { createBrowserTool } from "./tools/browser-tool.js";
 import { createCanvasTool } from "./tools/canvas-tool.js";
 import type { AnyAgentTool } from "./tools/common.js";
 import { createCronTool } from "./tools/cron-tool.js";
 import { createGatewayTool } from "./tools/gateway-tool.js";
+import { createImageGenerateTool } from "./tools/image-generate-tool.js";
 import { createImageTool } from "./tools/image-tool.js";
 import { createMessageTool } from "./tools/message-tool.js";
 import { createNodesTool } from "./tools/nodes-tool.js";
+import { createPdfTool } from "./tools/pdf-tool.js";
 import { createSessionStatusTool } from "./tools/session-status-tool.js";
 import { createSessionsHistoryTool } from "./tools/sessions-history-tool.js";
 import { createSessionsListTool } from "./tools/sessions-list-tool.js";
 import { createSessionsSendTool } from "./tools/sessions-send-tool.js";
 import { createSessionsSpawnTool } from "./tools/sessions-spawn-tool.js";
+import { createSessionsYieldTool } from "./tools/sessions-yield-tool.js";
 import { createSubagentsTool } from "./tools/subagents-tool.js";
+import { createTasksTool } from "./tools/tasks-tool.js";
 import { createTtsTool } from "./tools/tts-tool.js";
 import { createWebFetchTool, createWebSearchTool } from "./tools/web-tools.js";
 import { resolveWorkspaceRoot } from "./workspace-dir.js";
@@ -97,7 +102,18 @@ export function createOpenClawTools(options?: {
         sandboxRoot: options?.sandboxRoot,
         requireExplicitTarget: options?.requireExplicitMessageTarget,
       });
+  const activeMemoryRecallTool = createActiveMemoryRecallTool({
+    config: options?.config,
+    agentSessionKey: options?.agentSessionKey,
+  });
+  const activeMemorySaveTool = createActiveMemorySaveTool({
+    config: options?.config,
+    agentSessionKey: options?.agentSessionKey,
+  });
+
   const tools: AnyAgentTool[] = [
+    ...(activeMemoryRecallTool ? [activeMemoryRecallTool] : []),
+    ...(activeMemorySaveTool ? [activeMemorySaveTool] : []),
     createBrowserTool({
       sandboxBridgeUrl: options?.sandboxBrowserBridgeUrl,
       allowHostControl: options?.allowHostBrowserControl,
@@ -150,6 +166,17 @@ export function createOpenClawTools(options?: {
     }),
     createSubagentsTool({
       agentSessionKey: options?.agentSessionKey,
+    }),
+    createTasksTool(),
+    createSessionsYieldTool(),
+    createPdfTool({
+      workspaceDir,
+      sandboxed: options?.sandboxed,
+    }),
+    createImageGenerateTool({
+      config: options?.config,
+      workspaceDir,
+      sandboxed: options?.sandboxed,
     }),
     createSessionStatusTool({
       agentSessionKey: options?.agentSessionKey,

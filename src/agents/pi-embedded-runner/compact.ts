@@ -85,6 +85,39 @@ import type { EmbeddedPiCompactResult } from "./types.js";
 import { describeUnknownError, mapThinkingLevel } from "./utils.js";
 import { flushPendingToolResultsAfterIdle } from "./wait-for-idle-before-flush.js";
 
+// ========================
+// Thrashing 检测 — compact 后立即填满则停止
+// ========================
+
+const THRASHING_WINDOW_MS = 60_000;
+const THRASHING_THRESHOLD = 3;
+const compactionTimestamps: number[] = [];
+
+function recordCompaction(): boolean {
+  const now = Date.now();
+  compactionTimestamps.push(now);
+  while (compactionTimestamps.length > 0 && now - compactionTimestamps[0]! > THRASHING_WINDOW_MS) {
+    compactionTimestamps.shift();
+  }
+  const isThrashing = compactionTimestamps.length >= THRASHING_THRESHOLD;
+  if (isThrashing) {
+    log.warn(
+      `[viking] thrashing detected: ${compactionTimestamps.length} compactions within ${THRASHING_WINDOW_MS / 1000}s`,
+    );
+  }
+  return isThrashing;
+}
+
+export function isThrashingDetected(): boolean {
+  const now = Date.now();
+  const recent = compactionTimestamps.filter((t) => now - t < THRASHING_WINDOW_MS);
+  return recent.length >= THRASHING_THRESHOLD;
+}
+
+export function resetThrashingState(): void {
+  compactionTimestamps.length = 0;
+}
+
 export type CompactEmbeddedPiSessionParams = {
   sessionId: string;
   runId?: string;
@@ -643,6 +676,12 @@ export async function compactEmbeddedPiSessionDirect(
         const result = await compactWithSafetyTimeout(() =>
           session.compact(params.customInstructions),
         );
+
+        // Thrashing 检测：记录 compaction 时间戳
+        const isThrashing = recordCompaction();
+        if (isThrashing) {
+          log.warn(`[viking] thrashing detected after compaction, consider reducing context or increasing model context window`);
+        }
         // Estimate tokens after compaction by summing token estimates for remaining messages
         let tokensAfter: number | undefined;
         try {

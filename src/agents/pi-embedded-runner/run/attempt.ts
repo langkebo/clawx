@@ -3,7 +3,8 @@ import os from "node:os";
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import type { ImageContent } from "@mariozechner/pi-ai";
 import { streamSimple } from "@mariozechner/pi-ai";
-import { vikingRoute, buildSkillNamesOnlyPrompt } from "../../viking-router.js";
+import { vikingRoute, buildSkillNamesOnlyPrompt, tryRuleBasedRoute, classifyPromptComplexity, vikingReRoute, vikingRouteWithFeedback } from "../../viking-router.js";
+import type { VikingRouteResult } from "../../viking-router.js";
 import { createAgentSession, SessionManager, SettingsManager } from "@mariozechner/pi-coding-agent";
 import { resolveHeartbeatPrompt } from "../../../auto-reply/heartbeat.js";
 import { resolveChannelCapabilities } from "../../../config/channel-capabilities.js";
@@ -107,6 +108,7 @@ import {
   selectCompactionTimeoutSnapshot,
   shouldFlagCompactionTimeout,
 } from "./compaction-timeout.js";
+import { isThrashingDetected } from "../compact.js";
 import { detectAndLoadPromptImages } from "./images.js";
 import type { EmbeddedRunAttemptParams, EmbeddedRunAttemptResult } from "./types.js";
 
@@ -345,7 +347,18 @@ export async function runEmbeddedAttempt(
         // ===== L0 时间线加载（始终） start =====
         const l0Result = await loadL0Timeline({ agentDir });
         // ===== L0 时间线加载（始终） end =====
-        const routingDecision = await vikingRoute({
+
+        // P2: 分析 prompt 复杂度
+        const complexity = classifyPromptComplexity(params.prompt, l0Result.rawTimeline || undefined);
+        log.info(`[viking] prompt complexity: ${complexity.complexity} (maxTokens=${complexity.maxTokens})`);
+
+        // P4: 先尝试规则引擎（零成本路由）
+        let routingDecision: VikingRouteResult = tryRuleBasedRoute({
+          fileNames: vikingFileNames,
+          promptLength: params.prompt?.length ?? 0,
+          hasFileContext: vikingFileNames.length > 0,
+          workspaceDir: effectiveWorkspace,
+        }) ?? await vikingRoute({
           prompt: params.prompt,
           tools: toolsRaw,
           fileNames: vikingFileNames,
@@ -356,7 +369,7 @@ export async function runEmbeddedAttempt(
           timeline: l0Result.rawTimeline || undefined,
         });
         // 应用路由结果：只保留模型选出的工具
-        const routedToolsRaw = routingDecision.skipped
+        let routedToolsRaw = routingDecision.skipped
           ? toolsRaw
           : toolsRaw.filter((t) => routingDecision.tools.has(t.name));
         // 应用路由结果：只保留模型选出的 bootstrap 文件
@@ -412,6 +425,32 @@ export async function runEmbeddedAttempt(
           }
         }
         // ===== L2 按需加载 end =====
+
+        // P0: 动态再路由 — 如果上次会话有工具缺失，自动补充
+        if (!routingDecision.skipped && params.prompt) {
+          const lastError = params.previousToolError;
+          if (lastError?.missingToolName) {
+            const feedbackResult = await vikingRouteWithFeedback({
+              feedback: {
+                routeResult: routingDecision,
+                executionResult: "tool_missing",
+                missingToolName: lastError.missingToolName,
+                errorMessage: lastError.errorMessage,
+              },
+              allTools: toolsRaw,
+              model: params.model,
+              modelRegistry: params.modelRegistry,
+              provider: params.provider,
+            });
+            if (feedbackResult) {
+              routingDecision = feedbackResult;
+              routedToolsRaw = routingDecision.skipped
+                ? toolsRaw
+                : toolsRaw.filter((t) => routingDecision.tools.has(t.name));
+              log.info(`[viking] P0 re-route applied: tools=[${routedToolsRaw.map(t => t.name).join(",")}]`);
+            }
+          }
+        }
 
     const tools = sanitizeToolsForGoogle({ tools: routedToolsRaw, provider: params.provider });
     logToolSchemasForGoogle({ tools, provider: params.provider });
@@ -954,6 +993,7 @@ export async function runEmbeddedAttempt(
         getSuccessfulCronAdds,
         didSendViaMessagingTool,
         getLastToolError,
+        getVikingMissingTool,
         getUsageTotals,
         getCompactionCount,
       } = subscription;
@@ -1249,6 +1289,47 @@ export async function runEmbeddedAttempt(
           }
         }
 
+        // P1: Compact 后重路由 — compaction 完成后重新评估工具集
+        // Thrashing 检测：如果反复 compact 则降级到 L0 而非继续重路由
+        if (!routingDecision.skipped && getCompactionCount() > 0 && !promptError) {
+          if (isThrashingDetected()) {
+            log.warn(`[viking] thrashing detected, downgrading to L0 prompt mode`);
+            routingDecision = { ...routingDecision, promptLayer: "L0", skillsMode: "names" };
+          } else {
+            try {
+              const currentActiveTools = new Set(routedToolsRaw.map((t) => t.name));
+              const reRouteResult = await vikingReRoute({
+                currentTools: currentActiveTools,
+                newRequest: params.prompt,
+                allTools: toolsRaw,
+                model: params.model,
+                modelRegistry: params.modelRegistry,
+                provider: params.provider,
+              });
+              if (reRouteResult.addTools.size > 0 || reRouteResult.removeTools.size > 0) {
+                const newToolSet = new Set(currentActiveTools);
+                for (const t of reRouteResult.addTools) {
+                  newToolSet.add(t);
+                }
+                for (const t of reRouteResult.removeTools) {
+                  newToolSet.delete(t);
+                }
+                routedToolsRaw = toolsRaw.filter((t) => newToolSet.has(t.name));
+                routingDecision = {
+                  ...routingDecision,
+                  tools: newToolSet,
+                  promptLayer: newToolSet.size <= 2 ? "L0" : newToolSet.size <= 12 ? "L1" : "full",
+                };
+                log.info(
+                  `[viking] P1 post-compact re-route applied: +[${[...reRouteResult.addTools].join(",")}] -[${[...reRouteResult.removeTools].join(",")}] tools=[${routedToolsRaw.map(t => t.name).join(",")}]`,
+                );
+              }
+            } catch (reRouteErr) {
+              log.warn(`[viking] P1 post-compact re-route failed: ${String(reRouteErr)}`);
+            }
+          }
+        }
+
         // Append cache-TTL timestamp AFTER prompt + compaction retry completes.
         // Previously this was before the prompt, which caused a custom entry to be
         // inserted between compaction and the next prompt — breaking the
@@ -1442,6 +1523,7 @@ export async function runEmbeddedAttempt(
         toolMetas: toolMetasNormalized,
         lastAssistant,
         lastToolError: getLastToolError?.(),
+        vikingMissingTool: getVikingMissingTool?.(),
         didSendViaMessagingTool: didSendViaMessagingTool(),
         messagingToolSentTexts: getMessagingToolSentTexts(),
         messagingToolSentMediaUrls: getMessagingToolSentMediaUrls(),

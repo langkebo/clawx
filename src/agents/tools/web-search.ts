@@ -18,7 +18,9 @@ import {
   writeCache,
 } from "./web-shared.js";
 
-const SEARCH_PROVIDERS = ["brave", "perplexity", "grok"] as const;
+import { searchWithSearXNG, type SearXNGConfig, type SearXNGResult } from "./searxng-search.js";
+
+const SEARCH_PROVIDERS = ["brave", "perplexity", "grok", "searxng"] as const;
 const DEFAULT_SEARCH_COUNT = 5;
 const MAX_SEARCH_COUNT = 10;
 
@@ -223,6 +225,9 @@ function resolveSearchProvider(search?: WebSearchConfig): (typeof SEARCH_PROVIDE
   if (raw === "grok") {
     return "grok";
   }
+  if (raw === "searxng") {
+    return "searxng";
+  }
   if (raw === "brave") {
     return "brave";
   }
@@ -238,6 +243,18 @@ function resolvePerplexityConfig(search?: WebSearchConfig): PerplexityConfig {
     return {};
   }
   return perplexity as PerplexityConfig;
+}
+
+function resolveSearXNGHost(search?: WebSearchConfig): string | undefined {
+  if (!search || typeof search !== "object") {
+    return undefined;
+  }
+  const searxng = "searxng" in search ? search.searxng : undefined;
+  if (!searxng || typeof searxng !== "object") {
+    return undefined;
+  }
+  const host = (searxng as { host?: string }).host;
+  return host?.trim() || undefined;
 }
 
 function resolvePerplexityApiKey(perplexity?: PerplexityConfig): {
@@ -723,7 +740,9 @@ export function createWebSearchTool(options?: {
       ? "Search the web using Perplexity Sonar (direct or via OpenRouter). Returns AI-synthesized answers with citations from real-time web search."
       : provider === "grok"
         ? "Search the web using xAI Grok. Returns AI-synthesized answers with citations from real-time web search."
-        : "Search the web using Brave Search API. Supports region-specific and localized search via country and language parameters. Returns titles, URLs, and snippets for fast research.";
+        : provider === "searxng"
+          ? "Search the web using SearXNG (self-hosted privacy search engine). Returns titles, URLs, and snippets without tracking."
+          : "Search the web using Brave Search API. Supports region-specific and localized search via country and language parameters. Returns titles, URLs, and snippets for fast research.";
 
   return {
     label: "Web Search",
@@ -731,6 +750,43 @@ export function createWebSearchTool(options?: {
     description,
     parameters: WebSearchSchema,
     execute: async (_toolCallId, args) => {
+      if (provider === "searxng") {
+        const searxngHost = resolveSearXNGHost(search);
+        if (!searxngHost) {
+          return jsonResult({
+            error: "missing_searxng_host",
+            message: "SearXNG provider requires a host URL. Set tools.web.search.searxng.host in config.",
+          });
+        }
+        const params = args as Record<string, unknown>;
+        const query = readStringParam(params, "query", { required: true });
+        const count = readNumberParam(params, "count", { integer: true }) ?? DEFAULT_SEARCH_COUNT;
+        try {
+          const results = await searchWithSearXNG(query, {
+            host: searxngHost,
+            language: readStringParam(params, "search_lang") ?? "en",
+          });
+          const limited = results.slice(0, count);
+          return jsonResult({
+            query,
+            provider: "searxng",
+            results: limited.map((r: SearXNGResult, i: number) => ({
+              position: i + 1,
+              title: r.title,
+              url: r.url,
+              snippet: r.content,
+              source: r.engine,
+            })),
+            count: limited.length,
+          });
+        } catch (err) {
+          return jsonResult({
+            error: "searxng_search_failed",
+            message: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
       const perplexityAuth =
         provider === "perplexity" ? resolvePerplexityApiKey(perplexityConfig) : undefined;
       const apiKey =

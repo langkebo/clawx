@@ -126,6 +126,27 @@
         }
       }
     },
+    "active_memory_recall": {
+      "emoji": "🧠",
+      "title": "Memory Recall",
+      "detailKeys": ["topic", "context"]
+    },
+    "active_memory_save": {
+      "emoji": "💾",
+      "title": "Memory Save",
+      "detailKeys": ["topic", "content"]
+    },
+    "tasks": {
+      "emoji": "📋",
+      "title": "Tasks",
+      "actions": {
+        "list": { "label": "list", "detailKeys": ["status", "priority"] },
+        "create": { "label": "create", "detailKeys": ["title", "priority"] },
+        "update": { "label": "update", "detailKeys": ["taskId", "status", "progress"] },
+        "show": { "label": "show", "detailKeys": ["taskId"] },
+        "remove": { "label": "remove", "detailKeys": ["taskId"] }
+      }
+    },
     "cron": {
       "emoji": "⏰",
       "title": "Cron",
@@ -157,6 +178,23 @@
         "start": { "label": "start" },
         "wait": { "label": "wait" }
       }
+    },
+    "sessions_yield": {
+      "emoji": "⏭️",
+      "title": "Sessions Yield",
+      "detailKeys": ["message"]
+    },
+    "pdf": {
+      "emoji": "📑",
+      "title": "PDF",
+      "actions": {
+        "extract": { "label": "extract", "detailKeys": ["path", "url", "pages"] }
+      }
+    },
+    "image_generate": {
+      "emoji": "🎨",
+      "title": "Image Generate",
+      "detailKeys": ["prompt", "model", "size"]
     },
     "discord": {
       "emoji": "💬",

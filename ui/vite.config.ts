@@ -21,6 +21,8 @@ function normalizeBase(input: string): string {
 export default defineConfig(() => {
   const envBase = process.env.OPENCLAW_CONTROL_UI_BASE_PATH?.trim();
   const base = envBase ? normalizeBase(envBase) : "./";
+  const gatewayTarget =
+    process.env.OPENCLAW_GATEWAY_URL?.trim() || "http://127.0.0.1:19001";
   return {
     base,
     publicDir: path.resolve(here, "public"),
@@ -36,6 +38,13 @@ export default defineConfig(() => {
       host: true,
       port: 5173,
       strictPort: true,
+      proxy: {
+        "/__openclaw": {
+          target: gatewayTarget,
+          ws: true,
+          changeOrigin: true,
+        },
+      },
     },
   };
 });

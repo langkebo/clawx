@@ -191,6 +191,19 @@ const coreEntries: CoreCliEntry[] = [
   {
     commands: [
       {
+        name: "tasks",
+        description: "Manage background tasks and job tracking",
+        hasSubcommands: true,
+      },
+    ],
+    register: async ({ program }) => {
+      const mod = await import("../tasks-cli.js");
+      mod.registerTasksCli(program);
+    },
+  },
+  {
+    commands: [
+      {
         name: "browser",
         description: "Manage OpenClaw's dedicated browser (Chrome/Chromium)",
         hasSubcommands: true,

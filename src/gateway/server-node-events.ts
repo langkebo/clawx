@@ -482,8 +482,9 @@ export const handleNodeEvent = async (ctx: NodeEventContext, nodeId: string, evt
       const reason = typeof obj.reason === "string" ? obj.reason.trim() : "";
 
       let text = "";
+      const untrustedTag = " [untrusted]";
       if (evt.event === "exec.started") {
-        text = `Exec started (node=${nodeId}${runId ? ` id=${runId}` : ""})`;
+        text = `Exec started (node=${nodeId}${runId ? ` id=${runId}` : ""})${untrustedTag}`;
         if (command) {
           text += `: ${command}`;
         }
@@ -494,12 +495,12 @@ export const handleNodeEvent = async (ctx: NodeEventContext, nodeId: string, evt
         if (!shouldNotify) {
           return;
         }
-        text = `Exec finished (node=${nodeId}${runId ? ` id=${runId}` : ""}, ${exitLabel})`;
+        text = `Exec finished (node=${nodeId}${runId ? ` id=${runId}` : ""}, ${exitLabel})${untrustedTag}`;
         if (compactOutput) {
           text += `\n${compactOutput}`;
         }
       } else {
-        text = `Exec denied (node=${nodeId}${runId ? ` id=${runId}` : ""}${reason ? `, ${reason}` : ""})`;
+        text = `Exec denied (node=${nodeId}${runId ? ` id=${runId}` : ""}${reason ? `, ${reason}` : ""})${untrustedTag}`;
         if (command) {
           text += `: ${command}`;
         }

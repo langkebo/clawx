@@ -138,6 +138,27 @@
         }
       }
     },
+    "active_memory_recall": {
+      "icon": "brain",
+      "title": "Memory Recall",
+      "detailKeys": ["topic", "context"]
+    },
+    "active_memory_save": {
+      "icon": "save",
+      "title": "Memory Save",
+      "detailKeys": ["topic", "content"]
+    },
+    "tasks": {
+      "icon": "list-checks",
+      "title": "Tasks",
+      "actions": {
+        "list": { "label": "list", "detailKeys": ["status", "priority"] },
+        "create": { "label": "create", "detailKeys": ["title", "priority"] },
+        "update": { "label": "update", "detailKeys": ["taskId", "status", "progress"] },
+        "show": { "label": "show", "detailKeys": ["taskId"] },
+        "remove": { "label": "remove", "detailKeys": ["taskId"] }
+      }
+    },
     "cron": {
       "icon": "loader",
       "title": "Cron",
@@ -179,6 +200,23 @@
         "start": { "label": "start" },
         "wait": { "label": "wait" }
       }
+    },
+    "sessions_yield": {
+      "icon": "skipForward",
+      "title": "Sessions Yield",
+      "detailKeys": ["message"]
+    },
+    "pdf": {
+      "icon": "fileText",
+      "title": "PDF",
+      "actions": {
+        "extract": { "label": "extract", "detailKeys": ["path", "url", "pages"] }
+      }
+    },
+    "image_generate": {
+      "icon": "image",
+      "title": "Image Generate",
+      "detailKeys": ["prompt", "model", "size"]
     },
     "discord": {
       "icon": "messageSquare",

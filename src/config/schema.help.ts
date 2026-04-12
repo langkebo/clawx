@@ -47,6 +47,8 @@ export const FIELD_HELP: Record<string, string> = {
     "Extra node.invoke commands to allow beyond the gateway defaults (array of command strings).",
   "gateway.nodes.denyCommands":
     "Commands to block even if present in node claims or default allowlist.",
+  "gateway.nodes.allowPrivateNetwork":
+    "Allow node connections from private/internal network addresses (e.g., 192.168.x.x, 10.x.x.x). Default: false.",
   "nodeHost.browserProxy.enabled": "Expose the local browser control server via node proxy.",
   "nodeHost.browserProxy.allowProfiles":
     "Optional allowlist of browser profile names exposed via the node proxy.",

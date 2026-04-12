@@ -12,6 +12,9 @@
  */
 
 import { createHash } from "node:crypto";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { parse as parseYaml } from "yaml";
 import type { Api, Model } from "@mariozechner/pi-ai";
 import type { ModelRegistry } from "@mariozechner/pi-coding-agent";
 import { log } from "./pi-embedded-runner/logger.ts";
@@ -46,9 +49,14 @@ function getCachedResult(prompt: string, toolNames: string[]): VikingRouteResult
   const key = getCacheKey(prompt, toolNames);
   const entry = routingCache.get(key);
   if (entry && Date.now() - entry.timestamp < CACHE_TTL_MS) {
+    cacheHits++;
     log.info(`[viking] cache hit for prompt hash ${key.slice(0, 8)}`);
     return entry.result;
   }
+  if (entry) {
+    routingCache.delete(key);
+  }
+  cacheMisses++;
   return null;
 }
 
@@ -65,16 +73,35 @@ function setCachedResult(prompt: string, toolNames: string[], result: VikingRout
 
 export function clearRoutingCache(): void {
   routingCache.clear();
-  log.info("[viking] routing cache cleared");
+  cachedWorkspaceRules = null;
+  cachedWorkspaceRulesDir = null;
+  log.info("[viking] routing cache and rule cache cleared");
 }
 
-export function getRoutingCacheStats(): { size: number; maxSize: number; ttlMs: number } {
+export function invalidateCacheForTool(toolName: string): void {
+  let invalidated = 0;
+  for (const [key, entry] of routingCache.entries()) {
+    if (entry.result.tools.has(toolName)) {
+      routingCache.delete(key);
+      invalidated++;
+    }
+  }
+  if (invalidated > 0) {
+    log.info(`[viking] invalidated ${invalidated} cache entries for tool "${toolName}"`);
+  }
+}
+
+export function getRoutingCacheStats(): { size: number; maxSize: number; ttlMs: number; hitRate: number } {
   return {
     size: routingCache.size,
     maxSize: CACHE_MAX_SIZE,
     ttlMs: CACHE_TTL_MS,
+    hitRate: cacheHits / Math.max(cacheHits + cacheMisses, 1),
   };
 }
+
+let cacheHits = 0;
+let cacheMisses = 0;
 
 // ========================
 // 类型
@@ -128,16 +155,20 @@ const TOOL_PACKS: Record<string, { tools: string[]; description: string }> = {
     description: "发送消息到钉钉、Telegram、Discord等通道",
   },
   "media": {
-    tools: ["canvas", "image"],
-    description: "图片生成、画布展示和截图",
+    tools: ["canvas", "image", "image_generate", "pdf"],
+    description: "图片分析/生成、画布展示、PDF提取",
   },
   "infra": {
     tools: ["cron", "gateway", "session_status"],
     description: "定时任务、系统管理、状态查询、提醒",
   },
+  "tasks": {
+    tools: ["tasks", "active_memory_recall", "active_memory_save"],
+    description: "任务管理、后台作业跟踪、主动记忆召回与保存",
+  },
   "agents": {
-    tools: ["agents_list", "sessions_list", "sessions_history", "sessions_send", "sessions_spawn", "subagents"],
-    description: "多Agent协作、子任务派发、会话管理",
+    tools: ["agents_list", "sessions_list", "sessions_history", "sessions_send", "sessions_spawn", "sessions_yield", "subagents"],
+    description: "多Agent协作、子任务派发、会话管理、回合让出",
   },
   "nodes": {
     tools: ["nodes"],
@@ -202,7 +233,7 @@ function buildRoutingPrompt(params: {
   timeline?: string;
 }): { system: string; user: string } {
   const system = `You are a resource router. Select capability packs and files needed for the task.
-Reply with ONLY a JSON object, no other text, no markdown.`;
+Reply with ONLY a JSON object, no other text, no markdown, no code fences.`;
 
   const packIndex = buildPackIndex();
   const skillIndex = buildSkillIndex(params.skills);
@@ -210,7 +241,6 @@ Reply with ONLY a JSON object, no other text, no markdown.`;
 
   const timelineSection = params.timeline
     ? `===== Conversation Timeline (L0) =====
-This is a brief timeline of previous conversations. Each line has a date. Use it to determine if the user is referencing past work, and which dates are relevant.
 ${params.timeline}
 
 `
@@ -218,31 +248,31 @@ ${params.timeline}
 
   const user = `User message: "${params.userMessage}"
 
-${timelineSection}===== Capability Packs (select needed) =====
-Always loaded: read + exec (do not select)
+${timelineSection}===== Capability Packs =====
+Always loaded: read + exec
 ${packIndex}
 
-===== Skills (for reference, all run via exec) =====
+===== Skills =====
 ${skillIndex}
 
-===== Workspace Files (select needed) =====
+===== Workspace Files =====
 ${fileIndex}
 
 Reply JSON:
 {"packs":["pack names"],"files":["file names"],"needsL1":false,"l1Dates":[],"needsL2":false,"reason":"brief reason"}
 
 Rules:
-1. SKILLS: If the task matches any skill above, no extra pack needed (exec is always loaded). But if the skill also needs web/message/etc, include those packs.
-2. For ANY conversation: include SOUL.md, IDENTITY.md, USER.md.
-3. File editing/coding: include "base-ext".
-4. Web search: include "web".
-5. Send messages/notifications: include "message".
-6. Scheduled tasks/reminders: include "infra".
-7. Simple chat: packs=[], files=["SOUL.md","IDENTITY.md","USER.md"].
-8. When unsure: include more packs (cheap). Do NOT leave packs empty if the task needs tools beyond read+exec.
-9. If the user references previous work shown in the Timeline, set needsL1: true and l1Dates to the relevant dates from the Timeline (format: "YYYY-MM-DD"). Only include dates that appear in the Timeline and are relevant to the user's question.
-10. If the user needs the exact original conversation or full code (e.g., "把完整代码调出来", "看之前的详细对话"), set needsL2: true.
-11. If no Timeline is provided or the user's question is unrelated to past work, set needsL1: false, l1Dates: [], needsL2: false.`;
+1. For ANY conversation: always include SOUL.md, IDENTITY.md, USER.md in files.
+2. File editing/coding: include "base-ext" pack.
+3. Web search: include "web" pack.
+4. Send messages/notifications: include "message" pack.
+5. Scheduled tasks/reminders: include "infra" pack.
+6. Task tracking/memory: include "tasks" pack.
+7. Multi-agent/subtasks: include "agents" pack.
+8. Simple chat: packs=[], files=["SOUL.md","IDENTITY.md","USER.md"].
+9. If user references previous work from Timeline, set needsL1:true and l1Dates to relevant dates (YYYY-MM-DD).
+10. If user needs exact original conversation/code, set needsL2:true.
+11. When unsure: include more packs (cheap). Never leave packs empty if task needs tools beyond read+exec.`;
 
   log.info(`[viking] routing prompt chars: ${user.length}`);
   return { system, user };
@@ -287,6 +317,8 @@ const FAILOVER_CONFIG = {
   baseCooldownMs: 1000,
   maxCooldownMs: 30000,
   rateLimitedProfileRotations: 2,
+  maxSameProviderRetries: 2,
+  sameProviderCooldownMs: 5000,
 };
 
 export function isRateLimited(err: unknown): boolean {
@@ -358,12 +390,32 @@ async function callRoutingModel(params: {
   provider: string;
   system: string;
   user: string;
+  maxTokens?: number;
 }): Promise<RoutingModelResult | null> {
   let lastError: Error | null = null;
   let rateLimitCount = 0;
+  let sameProviderRetryCount = 0;
+  let lastProviderAttempted: string | null = null;
   
   for (let attempt = 0; attempt < FAILOVER_CONFIG.maxRetries; attempt++) {
     try {
+      const currentProvider = params.provider;
+      if (currentProvider === lastProviderAttempted) {
+        sameProviderRetryCount++;
+        if (sameProviderRetryCount > FAILOVER_CONFIG.maxSameProviderRetries) {
+          log.info(`[viking] same provider retry limit (${FAILOVER_CONFIG.maxSameProviderRetries}) reached for ${currentProvider}, aborting`);
+          return null;
+        }
+        if (sameProviderRetryCount > 1) {
+          const cooldown = FAILOVER_CONFIG.sameProviderCooldownMs;
+          log.info(`[viking] same provider retry ${sameProviderRetryCount}, waiting ${cooldown}ms`);
+          await new Promise((resolve) => setTimeout(resolve, cooldown));
+        }
+      } else {
+        sameProviderRetryCount = 0;
+      }
+      lastProviderAttempted = currentProvider;
+
       let apiKey = await params.modelRegistry.getApiKey(params.model) ?? "";
       if (!apiKey || looksLikeEnvVarName(apiKey)) {
         const envKey = resolveApiKeyFromEnv(
@@ -387,7 +439,7 @@ async function callRoutingModel(params: {
           { role: "system", content: params.system },
           { role: "user", content: params.user },
         ],
-        max_tokens: 200,
+        max_tokens: params.maxTokens ?? 200,
         stream: false,
       };
 
@@ -572,12 +624,34 @@ export async function vikingRoute(params: {
     timeline: params.timeline,
   });
 
+  // P2: 根据 prompt 复杂度调整路由模型 max_tokens 和模型选择
+  const complexity = classifyPromptComplexity(params.prompt, params.timeline);
+
+  let routingModel = params.model;
+  let routingProvider = params.provider;
+  if (complexity.preferredModel && complexity.preferredProvider) {
+    try {
+      const allModels = params.modelRegistry.getAll();
+      const altModel = allModels.find(
+        (m) => m.id === complexity.preferredModel || m.name === complexity.preferredModel,
+      );
+      if (altModel) {
+        routingModel = altModel;
+        routingProvider = complexity.preferredProvider;
+        log.info(`[viking] P2: using ${complexity.complexity} model ${complexity.preferredModel} via ${complexity.preferredProvider}`);
+      }
+    } catch {
+      log.info(`[viking] P2: fallback to default model (preferred model not found)`);
+    }
+  }
+
   const result = await callRoutingModel({
-    model: params.model,
+    model: routingModel,
     modelRegistry: params.modelRegistry,
-    provider: params.provider,
+    provider: routingProvider,
     system,
     user,
+    maxTokens: complexity.maxTokens,
   });
 
   if (!result) {
@@ -657,4 +731,409 @@ export function buildSkillNamesOnlyPrompt(skills: SkillIndexEntry[]): string {
     ...lines,
     `Use \`read\` on the skill's SKILL.md when needed.`,
   ].join("\n");
+}
+
+// ========================
+// P0: 动态再路由 — 工具调用失败时自动补充
+// ========================
+
+export interface VikingReRouteResult {
+  addTools: Set<string>;
+  removeTools: Set<string>;
+  addPacks: string[];
+}
+
+export async function vikingReRoute(params: {
+  currentTools: Set<string>;
+  newRequest: string;
+  allTools: AgentToolLike[];
+  model: Model<Api>;
+  modelRegistry: ModelRegistry;
+  provider: string;
+}): Promise<VikingReRouteResult> {
+  if (!VIKING_ENABLED) {
+    return { addTools: new Set(), removeTools: new Set(), addPacks: [] };
+  }
+
+  const currentToolList = [...params.currentTools].sort();
+  const allToolNames = params.allTools.map((t) => t.name);
+  const missingTools = allToolNames.filter((n) => !params.currentTools.has(n));
+
+  if (missingTools.length === 0) {
+    return { addTools: new Set(), removeTools: new Set(), addPacks: [] };
+  }
+
+  const packIndex = buildPackIndex();
+
+  const system = `You are a tool supplement router. The agent is missing a tool it needs.
+Reply with ONLY a JSON object, no other text, no markdown, no code fences.`;
+
+  const user = `Current tools: [${currentToolList.join(", ")}]
+Available but not loaded: [${missingTools.join(", ")}]
+Capability packs:
+${packIndex}
+
+The agent encountered: "${params.newRequest}"
+
+Which packs should be added? Reply JSON:
+{"packs":["pack names"],"files":[],"reason":"brief reason"}`;
+
+  const result = await callRoutingModel({
+    model: params.model,
+    modelRegistry: params.modelRegistry,
+    provider: params.provider,
+    system,
+    user,
+    maxTokens: 150,
+  });
+
+  if (!result || !result.packs || result.packs.length === 0) {
+    return { addTools: new Set(), removeTools: new Set(), addPacks: [] };
+  }
+
+  const expandedTools = expandPacks(result.packs);
+  const addTools = new Set<string>();
+  for (const t of expandedTools) {
+    if (!params.currentTools.has(t) && params.allTools.some((at) => at.name === t)) {
+      addTools.add(t);
+    }
+  }
+
+  log.info(
+    `[viking] re-route: addPacks=[${result.packs.join(",")}] addTools=[${[...addTools].join(",")}]`,
+  );
+
+  return { addTools, removeTools: new Set(), addPacks: result.packs };
+}
+
+// ========================
+// P5: 验证反馈回路 — 路由自纠正
+// ========================
+
+export type RouteFeedbackType = "tool_missing" | "tool_error" | "context_overflow" | "success";
+
+export interface VikingRouteFeedback {
+  routeResult: VikingRouteResult;
+  executionResult: RouteFeedbackType;
+  missingToolName?: string;
+  errorMessage?: string;
+}
+
+function reverseLookupPack(toolName: string): string | null {
+  for (const [packName, pack] of Object.entries(TOOL_PACKS)) {
+    if (pack.tools.includes(toolName)) {
+      return packName;
+    }
+  }
+  return null;
+}
+
+export async function vikingRouteWithFeedback(params: {
+  feedback: VikingRouteFeedback;
+  allTools: AgentToolLike[];
+  model: Model<Api>;
+  modelRegistry: ModelRegistry;
+  provider: string;
+}): Promise<VikingRouteResult | null> {
+  if (!VIKING_ENABLED) return null;
+
+  const fb = params.feedback;
+
+  if (fb.executionResult === "tool_missing" && fb.missingToolName) {
+    const tool = params.allTools.find((t) => t.name === fb.missingToolName);
+    if (!tool) return null;
+
+    const packName = reverseLookupPack(fb.missingToolName);
+    const addTools = new Set(fb.routeResult.tools);
+    addTools.add(fb.missingToolName);
+
+    if (packName) {
+      const pack = TOOL_PACKS[packName];
+      if (pack) {
+        for (const t of pack.tools) {
+          if (params.allTools.some((at) => at.name === t)) {
+            addTools.add(t);
+          }
+        }
+      }
+    }
+
+    log.info(
+      `[viking] feedback: tool_missing=${fb.missingToolName} pack=${packName ?? "none"} added tools=[${[...addTools].filter((t) => !fb.routeResult.tools.has(t)).join(",")}]`,
+    );
+
+    const toolCount = addTools.size;
+    const promptLayer: PromptMode =
+      toolCount <= 2 ? "L0" : toolCount <= 12 ? "L1" : "full";
+
+    return {
+      tools: addTools,
+      files: fb.routeResult.files,
+      promptLayer,
+      skillsMode: fb.routeResult.skillsMode,
+      skipped: false,
+      needsL1: fb.routeResult.needsL1,
+      l1Dates: fb.routeResult.l1Dates,
+      needsL2: fb.routeResult.needsL2,
+    };
+  }
+
+  if (fb.executionResult === "context_overflow") {
+    log.info(`[viking] feedback: context_overflow, downgrading to L0`);
+    return {
+      ...fb.routeResult,
+      promptLayer: "L0" as PromptMode,
+      skillsMode: "names",
+    };
+  }
+
+  return null;
+}
+
+// ========================
+// P2: 路由模型动态切换
+// ========================
+
+export interface RoutingModelChoice {
+  maxTokens: number;
+  complexity: "simple" | "moderate" | "complex";
+  preferredModel?: string;
+  preferredProvider?: string;
+}
+
+export function classifyPromptComplexity(prompt: string, timeline?: string): RoutingModelChoice {
+  const trimmed = prompt.trim();
+
+  const simplePatterns = /^(你好|hi|hello|谢谢|好的|是|否|ok|yes|no|嗯|对|行|拜|再见|bye)[!！。.？?~～]*$/i;
+  if (simplePatterns.test(trimmed)) {
+    return {
+      maxTokens: 50,
+      complexity: "simple",
+      preferredModel: "Qwen/Qwen2.5-7B-Instruct",
+      preferredProvider: "siliconflow",
+    };
+  }
+
+  const complexKeywords = /重构|架构|迁移|安全|优化|分析|对比|设计|review|调试|排查|修复|部署|监控|测试|性能|集成|升级|合并/i;
+  if (complexKeywords.test(trimmed) || (timeline && timeline.length > 2000)) {
+    return {
+      maxTokens: 300,
+      complexity: "complex",
+      preferredModel: "Qwen/Qwen2.5-72B-Instruct",
+      preferredProvider: "siliconflow",
+    };
+  }
+
+  const moderateKeywords = /编辑|修改|搜索|查找|发送|创建|删除|运行|执行|安装|配置|查看|列出/i;
+  if (moderateKeywords.test(trimmed)) {
+    return {
+      maxTokens: 200,
+      complexity: "moderate",
+      preferredModel: "Qwen/Qwen2.5-32B-Instruct",
+      preferredProvider: "siliconflow",
+    };
+  }
+
+  return {
+    maxTokens: 150,
+    complexity: "moderate",
+  };
+}
+
+// ========================
+// P3: 并行路由能力 — 多子任务同时路由
+// ========================
+
+export interface ParallelRouteTask {
+  id: string;
+  prompt: string;
+  fileNames?: string[];
+  skills?: Array<{ name: string; description: string }>;
+}
+
+export interface ParallelRouteResult {
+  id: string;
+  route: VikingRouteResult;
+  error?: string;
+}
+
+export async function vikingParallelRoute(params: {
+  tasks: ParallelRouteTask[];
+  tools: AgentToolLike[];
+  model: Model<Api>;
+  modelRegistry: ModelRegistry;
+  provider: string;
+  workspaceDir?: string;
+  concurrency?: number;
+}): Promise<ParallelRouteResult[]> {
+  if (!VIKING_ENABLED || params.tasks.length === 0) {
+    return [];
+  }
+
+  const concurrency = params.concurrency ?? 3;
+  const results: ParallelRouteResult[] = [];
+  const queue = [...params.tasks];
+
+  const worker = async (): Promise<void> => {
+    while (queue.length > 0) {
+      const task = queue.shift();
+      if (!task) break;
+
+      try {
+        const ruleResult = tryRuleBasedRoute({
+          fileNames: task.fileNames ?? [],
+          promptLength: task.prompt?.length ?? 0,
+          hasFileContext: (task.fileNames?.length ?? 0) > 0,
+          workspaceDir: params.workspaceDir,
+        });
+
+        const route = ruleResult ?? await vikingRoute({
+          prompt: task.prompt,
+          tools: params.tools,
+          fileNames: task.fileNames ?? [],
+          skills: task.skills ?? [],
+          model: params.model,
+          modelRegistry: params.modelRegistry,
+          provider: params.provider,
+        });
+
+        results.push({ id: task.id, route });
+      } catch (err) {
+        results.push({
+          id: task.id,
+          route: {
+            tools: new Set(params.tools.map((t) => t.name)),
+            files: new Set<string>(),
+            promptLayer: "full",
+            skillsMode: "summaries",
+            skipped: false,
+            needsL1: false,
+            l1Dates: [],
+            needsL2: false,
+          },
+          error: String(err),
+        });
+      }
+    }
+  };
+
+  const workers = Array.from({ length: Math.min(concurrency, params.tasks.length) }, () => worker());
+  await Promise.all(workers);
+
+  log.info(`[viking] parallel route: ${results.length}/${params.tasks.length} tasks completed`);
+  return results;
+}
+// ========================
+
+export interface VikingRule {
+  when: {
+    filePatterns?: string[];
+    promptMaxLength?: number;
+    noFileContext?: boolean;
+  };
+  then: {
+    packs: string[];
+    promptMode: PromptMode;
+  };
+}
+
+const DEFAULT_RULES: VikingRule[] = [
+  {
+    when: { promptMaxLength: 50, noFileContext: true },
+    then: { packs: [], promptMode: "L0" },
+  },
+];
+
+function loadRulesFromDir(rulesDir: string): VikingRule[] {
+  if (!existsSync(rulesDir)) return [];
+  const rules: VikingRule[] = [];
+  try {
+    const entries = readdirSync(rulesDir).filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"));
+    for (const entry of entries) {
+      try {
+        const content = readFileSync(join(rulesDir, entry), "utf-8");
+        const parsed = parseYaml(content);
+        if (Array.isArray(parsed)) {
+          for (const item of parsed) {
+            if (item?.when && item?.then) {
+              rules.push(item as VikingRule);
+            }
+          }
+        } else if (parsed?.when && parsed?.then) {
+          rules.push(parsed as VikingRule);
+        }
+      } catch (err) {
+        log.warn(`[viking] failed to load rule file ${entry}: ${String(err)}`);
+      }
+    }
+    if (rules.length > 0) {
+      log.info(`[viking] loaded ${rules.length} rule(s) from ${rulesDir}`);
+    }
+  } catch (err) {
+    log.warn(`[viking] failed to read rules dir ${rulesDir}: ${String(err)}`);
+  }
+  return rules;
+}
+
+let cachedWorkspaceRules: VikingRule[] | null = null;
+let cachedWorkspaceRulesDir: string | null = null;
+
+function getWorkspaceRules(workspaceDir?: string): VikingRule[] {
+  if (!workspaceDir) return [];
+  const rulesDir = join(workspaceDir, ".viking", "rules");
+  if (rulesDir === cachedWorkspaceRulesDir && cachedWorkspaceRules !== null) {
+    return cachedWorkspaceRules;
+  }
+  cachedWorkspaceRules = loadRulesFromDir(rulesDir);
+  cachedWorkspaceRulesDir = rulesDir;
+  return cachedWorkspaceRules;
+}
+
+function matchRule(rules: VikingRule[], context: {
+  fileNames: string[];
+  promptLength: number;
+  hasFileContext: boolean;
+}): VikingRule | null {
+  for (const rule of rules) {
+    const w = rule.when;
+    if (w.promptMaxLength !== undefined && context.promptLength > w.promptMaxLength) continue;
+    if (w.noFileContext === true && context.hasFileContext) continue;
+    if (w.filePatterns && w.filePatterns.length > 0) {
+      const matches = context.fileNames.some((fn) =>
+        w.filePatterns!.some((pat) => {
+          const regex = new RegExp(pat.replace(/\*/g, ".*").replace(/\?/g, "."));
+          return regex.test(fn);
+        }),
+      );
+      if (!matches) continue;
+    }
+    return rule;
+  }
+  return null;
+}
+
+export function tryRuleBasedRoute(context: {
+  fileNames: string[];
+  promptLength: number;
+  hasFileContext: boolean;
+  workspaceDir?: string;
+}): VikingRouteResult | null {
+  const workspaceRules = getWorkspaceRules(context.workspaceDir);
+  const allRules = [...workspaceRules, ...DEFAULT_RULES];
+  const rule = matchRule(allRules, context);
+  if (!rule) return null;
+
+  const tools = expandPacks(rule.then.packs);
+  log.info(`[viking] rule-based route matched: packs=[${rule.then.packs.join(",")}] mode=${rule.then.promptMode}`);
+
+  return {
+    tools,
+    files: new Set<string>(),
+    promptLayer: rule.then.promptMode,
+    skillsMode: "names",
+    skipped: false,
+    needsL1: false,
+    l1Dates: [],
+    needsL2: false,
+  };
 }

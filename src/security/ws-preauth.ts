@@ -65,7 +65,8 @@ export function installPreauthGuards(
     }
 
     state.messageCount++;
-    state.totalBytesReceived += data.length;
+    const dataLength = typeof data === "object" && data !== null && "length" in data ? (data as { length: number }).length : 0;
+    state.totalBytesReceived += dataLength;
     const now = Date.now();
 
     if (state.firstMessageAt === null) {
@@ -73,10 +74,10 @@ export function installPreauthGuards(
     }
     state.lastMessageAt = now;
 
-    if (data.length > maxFrameSize) {
+    if (dataLength > maxFrameSize) {
       state.rejectedAt = now;
       state.rejectionReason = "frame-too-large";
-      ws.close(1009, `Frame too large: ${data.length} > ${maxFrameSize}`);
+      ws.close(1009, `Frame too large: ${dataLength} > ${maxFrameSize}`);
       clearTimeout(authTimeout);
       return;
     }

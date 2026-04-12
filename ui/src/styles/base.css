@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
-
 :root {
   /* Background - Warmer dark with depth */
   --bg: #12141a;
@@ -80,12 +78,12 @@
   --theme-switch-x: 50%;
   --theme-switch-y: 50%;
 
-  /* Typography - Space Grotesk for personality */
+  /* Typography - System fonts with optional web font fallback */
   --mono:
-    "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
-  --font-body: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "JetBrains Mono", monospace;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
   --font-display:
-    "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
 
   /* Shadows - Richer with subtle color */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
@@ -213,6 +211,7 @@ body {
   0% {
     clip-path: circle(0% at var(--theme-switch-x, 50%) var(--theme-switch-y, 50%));
   }
+
   100% {
     clip-path: circle(150% at var(--theme-switch-x, 50%) var(--theme-switch-y, 50%));
   }
@@ -235,6 +234,7 @@ html.theme-transition::view-transition-new(theme) {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   html.theme-transition::view-transition-old(theme),
   html.theme-transition::view-transition-new(theme) {
     animation: none !important;
@@ -295,6 +295,7 @@ select {
     opacity: 0;
     transform: translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -305,6 +306,7 @@ select {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -315,6 +317,7 @@ select {
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -326,6 +329,7 @@ select {
     opacity: 0;
     transform: translateY(12px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -336,26 +340,31 @@ select {
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
 }
 
 @keyframes pulse-subtle {
+
   0%,
   100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.7;
   }
 }
 
 @keyframes glow-pulse {
+
   0%,
   100% {
     box-shadow: 0 0 0 rgba(255, 92, 92, 0);
   }
+
   50% {
     box-shadow: 0 0 20px var(--accent-glow);
   }
@@ -365,18 +374,23 @@ select {
 .stagger-1 {
   animation-delay: 0ms;
 }
+
 .stagger-2 {
   animation-delay: 50ms;
 }
+
 .stagger-3 {
   animation-delay: 100ms;
 }
+
 .stagger-4 {
   animation-delay: 150ms;
 }
+
 .stagger-5 {
   animation-delay: 200ms;
 }
+
 .stagger-6 {
   animation-delay: 250ms;
 }

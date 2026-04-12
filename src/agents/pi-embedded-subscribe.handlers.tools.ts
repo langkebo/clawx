@@ -282,6 +282,10 @@ export async function handleToolExecutionEnd(
       mutatingAction: callSummary?.mutatingAction,
       actionFingerprint: callSummary?.actionFingerprint,
     };
+    // Viking P5: 标记工具缺失，供下一次 attempt 的动态再路由使用
+    if (errorMessage && /not found|not available|unknown tool|no tool named|tool.*missing/i.test(errorMessage)) {
+      ctx.state.vikingMissingTool = toolName;
+    }
   } else if (ctx.state.lastToolError) {
     // Keep unresolved mutating failures until the same action succeeds.
     if (ctx.state.lastToolError.mutatingAction) {

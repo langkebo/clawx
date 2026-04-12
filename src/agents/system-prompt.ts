@@ -51,13 +51,28 @@ function buildMemorySection(params: {
   if (params.isMinimal) {
     return [];
   }
-  if (!params.availableTools.has("memory_search") && !params.availableTools.has("memory_get")) {
+  const hasActiveMemory =
+    params.availableTools.has("active_memory_recall") || params.availableTools.has("active_memory_save");
+  const hasLegacyMemory =
+    params.availableTools.has("memory_search") || params.availableTools.has("memory_get");
+
+  if (!hasActiveMemory && !hasLegacyMemory) {
     return [];
   }
-  const lines = [
-    "## Memory Recall",
-    "Before answering anything about prior work, decisions, dates, people, preferences, or todos: run memory_search on MEMORY.md + memory/*.md; then use memory_get to pull only the needed lines. If low confidence after search, say you checked.",
-  ];
+
+  const lines: string[] = ["## Memory Recall"];
+
+  if (hasActiveMemory) {
+    lines.push(
+      "Before answering anything about prior work, decisions, dates, people, preferences, or todos: call active_memory_recall with the relevant topic. This automatically searches MEMORY.md + memory/*.md and returns the most relevant context.",
+      "When the user expresses a clear preference, makes a decision, or shares important information: proactively call active_memory_save to persist it for future sessions.",
+    );
+  } else {
+    lines.push(
+      "Before answering anything about prior work, decisions, dates, people, preferences, or todos: run memory_search on MEMORY.md + memory/*.md; then use memory_get to pull only the needed lines. If low confidence after search, say you checked.",
+    );
+  }
+
   if (params.citationsMode === "off") {
     lines.push(
       "Citations are disabled: do not mention file paths or line numbers in replies unless the user explicitly asks.",
@@ -237,7 +252,7 @@ export function buildAgentSystemPrompt(params: {
     ls: "List directory contents",
     exec: "Run shell commands (pty available for TTY-required CLIs)",
     process: "Manage background exec sessions",
-    web_search: "Search the web (Brave API)",
+    web_search: "Search the web (Brave/SearXNG/Perplexity/Grok)",
     web_fetch: "Fetch and extract readable content from a URL",
     // Channel docking: add login tools here when a channel needs interactive linking.
     browser: "Control web browser",
@@ -251,10 +266,16 @@ export function buildAgentSystemPrompt(params: {
     sessions_history: "Fetch history for another session/sub-agent",
     sessions_send: "Send a message to another session/sub-agent",
     sessions_spawn: "Spawn a sub-agent session",
+    sessions_yield: "End current turn and optionally pass a message into the next turn",
     subagents: "List, steer, or kill sub-agent runs for this requester session",
     session_status:
       "Show a /status-equivalent status card (usage + time + Reasoning/Verbose/Elevated); use for model-use questions (📊 session_status); optional per-session model override",
     image: "Analyze an image with the configured image model",
+    image_generate: "Generate images from text descriptions using AI models (DALL-E, etc.)",
+    pdf: "Extract text and images from PDF files",
+    tasks: "Manage background tasks: list, create, update, show details, or remove tasks",
+    active_memory_recall: "Recall relevant memories from previous sessions",
+    active_memory_save: "Save important information for future sessions",
   };
 
   const toolOrder = [
@@ -279,9 +300,16 @@ export function buildAgentSystemPrompt(params: {
     "sessions_list",
     "sessions_history",
     "sessions_send",
+    "sessions_spawn",
+    "sessions_yield",
     "subagents",
     "session_status",
     "image",
+    "image_generate",
+    "pdf",
+    "tasks",
+    "active_memory_recall",
+    "active_memory_save",
   ];
 
   const rawToolNames = (params.toolNames ?? []).map((tool) => tool.trim());

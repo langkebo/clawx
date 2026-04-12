@@ -100,6 +100,15 @@ const entries: SubCliEntry[] = [
     },
   },
   {
+    name: "exec-policy",
+    description: "View and manage exec security policy",
+    hasSubcommands: true,
+    register: async (program) => {
+      const mod = await import("../exec-policy-cli.js");
+      mod.registerExecPolicyCli(program);
+    },
+  },
+  {
     name: "nodes",
     description: "Manage gateway-owned node pairing and node commands",
     hasSubcommands: true,

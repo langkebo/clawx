@@ -6,7 +6,7 @@ type ToolResultFlushManager = {
   flushPendingToolResults?: (() => void) | undefined;
 };
 
-export const DEFAULT_WAIT_FOR_IDLE_TIMEOUT_MS = 30_000;
+export const DEFAULT_WAIT_FOR_IDLE_TIMEOUT_MS = 120_000;
 
 async function waitForAgentIdleBestEffort(
   agent: IdleAwareAgent | null | undefined,

@@ -14,7 +14,7 @@ const TOOL_NAME_ALIASES: Record<string, string> = {
 
 export const TOOL_GROUPS: Record<string, string[]> = {
   // NOTE: Keep canonical (lowercase) tool names here.
-  "group:memory": ["memory_search", "memory_get"],
+  "group:memory": ["memory_search", "memory_get", "active_memory_recall", "active_memory_save"],
   "group:web": ["web_search", "web_fetch"],
   // Basic workspace/file tools
   "group:fs": ["read", "write", "edit", "apply_patch"],
@@ -26,6 +26,7 @@ export const TOOL_GROUPS: Record<string, string[]> = {
     "sessions_history",
     "sessions_send",
     "sessions_spawn",
+    "sessions_yield",
     "subagents",
     "session_status",
   ],
@@ -37,6 +38,10 @@ export const TOOL_GROUPS: Record<string, string[]> = {
   "group:messaging": ["message"],
   // Nodes + device tools
   "group:nodes": ["nodes"],
+  // Task tracking + background jobs
+  "group:tasks": ["tasks", "active_memory_recall", "active_memory_save"],
+  // Media tools
+  "group:media": ["image", "image_generate", "pdf"],
   // All OpenClaw native tools (excludes provider plugins).
   "group:openclaw": [
     "browser",
@@ -50,13 +55,19 @@ export const TOOL_GROUPS: Record<string, string[]> = {
     "sessions_history",
     "sessions_send",
     "sessions_spawn",
+    "sessions_yield",
     "subagents",
     "session_status",
     "memory_search",
     "memory_get",
+    "active_memory_recall",
+    "active_memory_save",
     "web_search",
     "web_fetch",
     "image",
+    "image_generate",
+    "pdf",
+    "tasks",
   ],
 };
 
