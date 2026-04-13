@@ -1,6 +1,6 @@
 # Viking × Claude Code 精华融合 — 优化实施报告
 
-> 版本: v1.0 | 日期: 2026-04-12 | 基于 OPTIMIZATION_PLAN.md 执行
+> 版本: v2.0 | 日期: 2026-04-13 | 基于 OPTIMIZATION_PLAN.md 执行
 
 ---
 
@@ -8,17 +8,17 @@
 
 | 优化项 | 优先级 | 状态 | 涉及文件 |
 |--------|--------|------|----------|
-| P0: 工具动态再路由 | 🔴 高 | ✅ 已完成 | viking-router.ts, attempt.ts, handlers.tools.ts, handlers.types.ts |
+| P0: 工具动态再路由 | 🔴 高 | ✅ 已完成 | viking-router.ts, attempt.ts, handlers.tools.ts, handlers.types.ts, run.ts, params.ts |
 | P1: Compact 后重路由 | 🟡 中 | ✅ 已完成 | attempt.ts, compact.ts |
 | P2: 路由模型动态切换 | 🟡 中 | ✅ 已完成 | viking-router.ts, attempt.ts |
 | P3: 并行路由能力 | 🟢 低 | ✅ 已完成 | viking-router.ts |
 | P4: 路径级规则引擎 | 🟢 低 | ✅ 已完成 | viking-router.ts, .viking/rules/ |
-| P5: 验证反馈回路 | 🟢 低 | ✅ 已完成 | viking-router.ts, attempt.ts, handlers.tools.ts |
+| P5: 验证反馈回路 | 🟢 低 | ✅ 已完成 | viking-router.ts, attempt.ts, handlers.tools.ts, subscribe.ts, run.ts, types.ts |
 | 额外: 路由缓存优化 | — | ✅ 已完成 | viking-router.ts |
 | 额外: Thrashing 检测 | — | ✅ 已完成 | compact.ts, attempt.ts |
 
 **构建状态**: ✅ TypeScript 编译通过，pnpm build 成功
-**测试状态**: ✅ 75 个单元测试全部通过（0 回归）
+**测试状态**: ✅ 97 个单元测试全部通过（0 回归）
 
 ---
 
@@ -327,6 +327,9 @@ function reverseLookupPack(toolName: string): string | null {
 | vikingReRoute JSON 字段不匹配 | prompt 请求 `addPacks` 字段但 `callRoutingModel` 解析 `packs` 字段 | 统一为 `packs` 字段 |
 | ModelRegistry.getModel 不存在 | 尝试调用不存在的 `getModel` 方法 | 改用 `getAll()` + `find()` |
 | ToolHandlerState 缺少 vikingMissingTool | 新增字段未同步到 Pick 类型 | 添加到 Pick 列表 |
+| P0/P5 反馈回路断裂 | `vikingMissingTool` 在 handler 中设置但未传递到下一次 attempt | 新增 `vikingMissingTool` 到 `EmbeddedRunAttemptResult`、`subscribe.ts` 导出 `getVikingMissingTool`、`run.ts` 跟踪 `vikingPreviousToolError`、`attempt.ts` 读取并触发 P0 再路由 |
+| vikingMissingTool 未清理 | 工具成功调用后 `vikingMissingTool` 仍残留，导致不必要的再路由 | 在 `handlers.tools.ts` 工具成功时清除 `vikingMissingTool = undefined` |
+| P0 路由缓存未失效 | P0 再路由后缓存保留旧工具集 | 新增 `invalidateCacheForTool()` 在 P0 再路由后精准失效缓存 |
 
 ---
 
@@ -392,4 +395,4 @@ function reverseLookupPack(toolName: string): string | null {
 
 ---
 
-*报告生成时间: 2026-04-12 | 基于 OPTIMIZATION_PLAN.md v1.0*
+*报告生成时间: 2026-04-13 | 基于 OPTIMIZATION_PLAN.md v1.0 | v2.0 更新: 反馈回路修复 + 缓存失效修复*
