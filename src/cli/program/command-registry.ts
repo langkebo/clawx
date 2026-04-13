@@ -204,6 +204,19 @@ const coreEntries: CoreCliEntry[] = [
   {
     commands: [
       {
+        name: "exec-policy",
+        description: "View and manage exec security policy",
+        hasSubcommands: true,
+      },
+    ],
+    register: async ({ program }) => {
+      const mod = await import("../exec-policy-cli.js");
+      mod.registerExecPolicyCli(program);
+    },
+  },
+  {
+    commands: [
+      {
         name: "browser",
         description: "Manage OpenClaw's dedicated browser (Chrome/Chromium)",
         hasSubcommands: true,

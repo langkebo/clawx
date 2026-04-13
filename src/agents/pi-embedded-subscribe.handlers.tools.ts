@@ -286,20 +286,22 @@ export async function handleToolExecutionEnd(
     if (errorMessage && /not found|not available|unknown tool|no tool named|tool.*missing/i.test(errorMessage)) {
       ctx.state.vikingMissingTool = toolName;
     }
-  } else if (ctx.state.lastToolError) {
-    // Keep unresolved mutating failures until the same action succeeds.
-    if (ctx.state.lastToolError.mutatingAction) {
-      if (
-        isSameToolMutationAction(ctx.state.lastToolError, {
-          toolName,
-          meta,
-          actionFingerprint: callSummary?.actionFingerprint,
-        })
-      ) {
+  } else {
+    ctx.state.vikingMissingTool = undefined;
+    if (ctx.state.lastToolError) {
+      if (ctx.state.lastToolError.mutatingAction) {
+        if (
+          isSameToolMutationAction(ctx.state.lastToolError, {
+            toolName,
+            meta,
+            actionFingerprint: callSummary?.actionFingerprint,
+          })
+        ) {
+          ctx.state.lastToolError = undefined;
+        }
+      } else {
         ctx.state.lastToolError = undefined;
       }
-    } else {
-      ctx.state.lastToolError = undefined;
     }
   }
 

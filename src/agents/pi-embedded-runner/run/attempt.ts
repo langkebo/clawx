@@ -3,7 +3,7 @@ import os from "node:os";
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import type { ImageContent } from "@mariozechner/pi-ai";
 import { streamSimple } from "@mariozechner/pi-ai";
-import { vikingRoute, buildSkillNamesOnlyPrompt, tryRuleBasedRoute, classifyPromptComplexity, vikingReRoute, vikingRouteWithFeedback } from "../../viking-router.js";
+import { vikingRoute, buildSkillNamesOnlyPrompt, tryRuleBasedRoute, classifyPromptComplexity, vikingReRoute, vikingRouteWithFeedback, invalidateCacheForTool } from "../../viking-router.js";
 import type { VikingRouteResult } from "../../viking-router.js";
 import { createAgentSession, SessionManager, SettingsManager } from "@mariozechner/pi-coding-agent";
 import { resolveHeartbeatPrompt } from "../../../auto-reply/heartbeat.js";
@@ -447,6 +447,7 @@ export async function runEmbeddedAttempt(
               routedToolsRaw = routingDecision.skipped
                 ? toolsRaw
                 : toolsRaw.filter((t) => routingDecision.tools.has(t.name));
+              invalidateCacheForTool(lastError.missingToolName);
               log.info(`[viking] P0 re-route applied: tools=[${routedToolsRaw.map(t => t.name).join(",")}]`);
             }
           }
