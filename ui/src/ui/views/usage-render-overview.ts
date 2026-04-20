@@ -552,12 +552,12 @@ function renderVikingRoutingCard(vikingStats: VikingStatsSnapshot | null) {
   const items = [
     {
       label: "Cache Hit Rate",
-      value: `${(vikingStats.cache.hitRate * 100).toFixed(1)}%`,
+      value: `${Number.isFinite(vikingStats.cache.hitRate) ? (vikingStats.cache.hitRate * 100).toFixed(1) : "0.0"}%`,
       sub: `${vikingStats.cache.size} / ${vikingStats.cache.maxSize} entries`,
     },
     {
       label: "Rule Engine Hits",
-      value: `${(vikingStats.routes.ruleHitRate * 100).toFixed(1)}%`,
+      value: `${Number.isFinite(vikingStats.routes.ruleHitRate) ? (vikingStats.routes.ruleHitRate * 100).toFixed(1) : "0.0"}%`,
       sub: `${vikingStats.routes.ruleHits} / ${vikingStats.routes.total} routes`,
     },
     {

@@ -41,6 +41,7 @@ import {
 import { formatForLog } from "../ws-log.js";
 import { injectTimestamp, timestampOptsFromConfig } from "./agent-timestamp.js";
 import { normalizeRpcAttachmentsToChatAttachments } from "./attachment-normalize.js";
+import { getVikingRouteTag } from "../../agents/viking-router.js";
 import type { GatewayRequestContext, GatewayRequestHandlers } from "./types.js";
 
 type TranscriptAppendResult = {
@@ -622,10 +623,17 @@ export const chatHandlers: GatewayRequestHandlers = {
       }
     }
     const verboseLevel = entry?.verboseLevel ?? cfg.agents?.defaults?.verboseDefault;
+    const routeTag = getVikingRouteTag();
+    const taggedMessages = routeTag
+      ? bounded.messages.map((msg: unknown) => {
+          if (!msg || typeof msg !== "object") { return msg; }
+          return { ...(msg as Record<string, unknown>), _routeTag: routeTag };
+        })
+      : bounded.messages;
     respond(true, {
       sessionKey,
       sessionId,
-      messages: bounded.messages,
+      messages: taggedMessages,
       thinkingLevel,
       verboseLevel,
     });

@@ -35,8 +35,6 @@ function readVikingConfig() {
   };
 }
 
-const CACHE_TTL_MS_DEFAULT = 5 * 60 * 1000;
-const CACHE_MAX_SIZE_DEFAULT = 1000;
 
 interface CacheEntry {
   result: VikingRouteResult;
@@ -132,6 +130,13 @@ export function getVikingFullStats(): {
       reroutes: rerouteCount,
     },
   };
+}
+
+export function getVikingRouteTag(): string | null {
+  if (!readVikingConfig().enabled) {
+    return null;
+  }
+  return "Viking";
 }
 
 let cacheHits = 0;
@@ -556,7 +561,13 @@ async function callRoutingModel(params: {
         return null;
       }
 
-      const parsed = JSON.parse(jsonMatch[0]);
+      let parsed: Record<string, unknown>;
+      try {
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch {
+        log.info(`[viking] JSON parse failed, fallback to full`);
+        return null;
+      }
       return {
         packs: Array.isArray(parsed.packs) ? parsed.packs : [],
         files: Array.isArray(parsed.files) ? parsed.files : [],

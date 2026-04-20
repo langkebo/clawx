@@ -24,12 +24,7 @@ export const vikingHandlers: GatewayRequestHandlers = {
       respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, String(err)));
     }
   },
-  "viking.cache.clear": async ({ respond, client }) => {
-    const scopes = Array.isArray(client?.connect?.scopes) ? client.connect.scopes : [];
-    if (!scopes.includes("operator.admin")) {
-      respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "missing scope: operator.admin"));
-      return;
-    }
+  "viking.cache.clear": async ({ respond }) => {
     try {
       clearRoutingCache();
       respond(true, { cleared: true }, undefined);

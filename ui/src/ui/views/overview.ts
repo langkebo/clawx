@@ -290,7 +290,7 @@ export function renderOverview(props: OverviewProps) {
         </div>
         <div class="stat">
           <div class="stat-label">${t("overview.viking.cacheHitRate")}</div>
-          <div class="stat-value">${(props.vikingStats.cache.hitRate * 100).toFixed(1)}%</div>
+          <div class="stat-value">${Number.isFinite(props.vikingStats.cache.hitRate) ? (props.vikingStats.cache.hitRate * 100).toFixed(1) : "0.0"}%</div>
         </div>
         <div class="stat">
           <div class="stat-label">${t("overview.viking.cacheSize")}</div>
@@ -302,7 +302,7 @@ export function renderOverview(props: OverviewProps) {
         </div>
         <div class="stat">
           <div class="stat-label">${t("overview.viking.ruleHitRate")}</div>
-          <div class="stat-value">${(props.vikingStats.routes.ruleHitRate * 100).toFixed(1)}%</div>
+          <div class="stat-value">${Number.isFinite(props.vikingStats.routes.ruleHitRate) ? (props.vikingStats.routes.ruleHitRate * 100).toFixed(1) : "0.0"}%</div>
         </div>
         <div class="stat">
           <div class="stat-label">${t("overview.viking.reroutes")}</div>
