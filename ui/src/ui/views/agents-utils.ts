@@ -39,6 +39,15 @@ export const TOOL_SECTIONS = [
     tools: [
       { id: "memory_search", label: "memory_search", description: "Semantic search" },
       { id: "memory_get", label: "memory_get", description: "Read memory files" },
+      { id: "active_memory_recall", label: "active_memory_recall", description: "Recall active memories" },
+      { id: "active_memory_save", label: "active_memory_save", description: "Save active memories" },
+    ],
+  },
+  {
+    id: "tasks",
+    label: "Tasks",
+    tools: [
+      { id: "tasks", label: "tasks", description: "Manage background tasks" },
     ],
   },
   {
@@ -49,6 +58,7 @@ export const TOOL_SECTIONS = [
       { id: "sessions_history", label: "sessions_history", description: "Session history" },
       { id: "sessions_send", label: "sessions_send", description: "Send to session" },
       { id: "sessions_spawn", label: "sessions_spawn", description: "Spawn sub-agent" },
+      { id: "sessions_yield", label: "sessions_yield", description: "Yield turn" },
       { id: "session_status", label: "session_status", description: "Session status" },
     ],
   },
@@ -81,12 +91,19 @@ export const TOOL_SECTIONS = [
   {
     id: "agents",
     label: "Agents",
-    tools: [{ id: "agents_list", label: "agents_list", description: "List agents" }],
+    tools: [
+      { id: "agents_list", label: "agents_list", description: "List agents" },
+      { id: "subagents", label: "subagents", description: "Manage sub-agents" },
+    ],
   },
   {
     id: "media",
     label: "Media",
-    tools: [{ id: "image", label: "image", description: "Image understanding" }],
+    tools: [
+      { id: "image", label: "image", description: "Image understanding" },
+      { id: "image_generate", label: "image_generate", description: "Generate images with AI" },
+      { id: "pdf", label: "pdf", description: "Extract text from PDF" },
+    ],
   },
 ];
 

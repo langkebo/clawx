@@ -122,6 +122,18 @@
   margin-top: 4px;
 }
 
+.chat-tool-card__route-tag {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--accent-bg, rgba(99, 102, 241, 0.1));
+  color: var(--accent, #6366f1);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 /* Collapsed preview - fixed height with truncation */
 .chat-tool-card__preview {
   font-size: 11px;

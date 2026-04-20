@@ -32,7 +32,7 @@ import {
 import { saveSettings, type UiSettings } from "./storage.ts";
 import { startThemeTransition, type ThemeTransitionContext } from "./theme-transition.ts";
 import { resolveTheme, type ResolvedTheme, type ThemeMode } from "./theme.ts";
-import type { AgentsListResult } from "./types.ts";
+import type { AgentsListResult, VikingStatsSnapshot } from "./types.ts";
 
 type SettingsHost = {
   settings: UiSettings;
@@ -409,7 +409,18 @@ export async function loadOverview(host: SettingsHost) {
     loadSessions(host as unknown as OpenClawApp),
     loadCronStatus(host as unknown as OpenClawApp),
     loadDebug(host as unknown as OpenClawApp),
+    loadVikingStats(host as unknown as OpenClawApp),
   ]);
+}
+
+export async function loadVikingStats(host: OpenClawApp) {
+  if (!host.client) return;
+  try {
+    const stats = await host.client.request<VikingStatsSnapshot>("viking.stats");
+    host.vikingStats = stats;
+  } catch {
+    host.vikingStats = null;
+  }
 }
 
 export async function loadChannelsTab(host: SettingsHost) {

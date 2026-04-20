@@ -649,6 +649,18 @@ export const OpenClawSchema = z
       })
       .strict()
       .optional(),
+    viking: z
+      .object({
+        enabled: z.boolean().optional(),
+        cacheMaxSize: z.number().int().positive().optional(),
+        cacheTtlMs: z.number().int().positive().optional(),
+        ruleEngine: z.boolean().optional(),
+        dynamicReroute: z.boolean().optional(),
+        feedbackLoop: z.boolean().optional(),
+        routingModel: z.string().optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .superRefine((cfg, ctx) => {

@@ -30,6 +30,7 @@ import type {
   SessionsListResult,
   SkillStatusReport,
   StatusSummary,
+  VikingStatsSnapshot,
 } from "./types.ts";
 import type { ChatAttachment, ChatQueueItem, CronFormState } from "./ui-types.ts";
 import type { NostrProfileFormState } from "./views/channels.nostr-profile-form.ts";
@@ -192,6 +193,7 @@ export type AppViewState = {
   cronRunsJobId: string | null;
   cronRuns: CronRunLogEntry[];
   cronBusy: boolean;
+  vikingStats: VikingStatsSnapshot | null;
   skillsLoading: boolean;
   skillsReport: SkillStatusReport | null;
   skillsError: string | null;

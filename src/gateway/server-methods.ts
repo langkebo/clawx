@@ -23,6 +23,7 @@ import { ttsHandlers } from "./server-methods/tts.js";
 import type { GatewayRequestHandlers, GatewayRequestOptions } from "./server-methods/types.js";
 import { updateHandlers } from "./server-methods/update.js";
 import { usageHandlers } from "./server-methods/usage.js";
+import { vikingHandlers } from "./server-methods/viking.js";
 import { voicewakeHandlers } from "./server-methods/voicewake.js";
 import { webHandlers } from "./server-methods/web.js";
 import { wizardHandlers } from "./server-methods/wizard.js";
@@ -80,6 +81,7 @@ const READ_METHODS = new Set([
   "chat.history",
   "config.get",
   "talk.config",
+  "viking.stats",
 ]);
 const WRITE_METHODS = new Set([
   "send",
@@ -164,7 +166,8 @@ function authorizeGatewayMethod(method: string, client: GatewayRequestOptions["c
     method === "sessions.patch" ||
     method === "sessions.reset" ||
     method === "sessions.delete" ||
-    method === "sessions.compact"
+    method === "sessions.compact" ||
+    method === "viking.cache.clear"
   ) {
     return errorShape(ErrorCodes.INVALID_REQUEST, "missing scope: operator.admin");
   }
@@ -195,6 +198,7 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...pushHandlers,
   ...sendHandlers,
   ...usageHandlers,
+  ...vikingHandlers,
   ...agentHandlers,
   ...agentsHandlers,
   ...browserHandlers,

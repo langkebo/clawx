@@ -1,5 +1,6 @@
 import { html, nothing } from "lit";
 import { formatDurationCompact } from "../../../../src/infra/format-time/format-duration.ts";
+import type { VikingStatsSnapshot } from "../types.ts";
 import {
   formatCost,
   formatDayLabel,
@@ -368,6 +369,7 @@ function renderUsageInsights(
   totals: UsageTotals | null,
   aggregates: UsageAggregates,
   stats: UsageInsightStats,
+  vikingStats: VikingStatsSnapshot | null,
   showCostHint: boolean,
   errorHours: Array<{ label: string; value: string; sub?: string }>,
   sessionCount: number,
@@ -537,9 +539,34 @@ function renderUsageInsights(
         ${renderInsightList("Top Channels", topChannels, "No channel data")}
         ${renderPeakErrorList("Peak Error Days", errorDays, "No error data")}
         ${renderPeakErrorList("Peak Error Hours", errorHours, "No error data")}
+        ${renderVikingRoutingCard(vikingStats)}
       </div>
     </section>
   `;
+}
+
+function renderVikingRoutingCard(vikingStats: VikingStatsSnapshot | null) {
+  if (!vikingStats || !vikingStats.enabled) {
+    return renderInsightList("Viking Routing", [], "Routing disabled");
+  }
+  const items = [
+    {
+      label: "Cache Hit Rate",
+      value: `${(vikingStats.cache.hitRate * 100).toFixed(1)}%`,
+      sub: `${vikingStats.cache.size} / ${vikingStats.cache.maxSize} entries`,
+    },
+    {
+      label: "Rule Engine Hits",
+      value: `${(vikingStats.routes.ruleHitRate * 100).toFixed(1)}%`,
+      sub: `${vikingStats.routes.ruleHits} / ${vikingStats.routes.total} routes`,
+    },
+    {
+      label: "Re-routes",
+      value: `${vikingStats.routes.reroutes}`,
+      sub: vikingStats.routes.reroutes > 0 ? "Dynamic re-routing active" : "No re-routes needed",
+    },
+  ];
+  return renderInsightList("Viking Routing", items, "No routing data");
 }
 
 function renderSessionsCard(

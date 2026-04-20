@@ -22,7 +22,15 @@ import type { PromptMode } from "./system-prompt.js";
 // ========================
 // true  = 启用 Viking 分层路由（按需加载工具/文件/prompt）
 // false = 回到原本行为（全量加载所有资源）
-const VIKING_ENABLED = true;
+import { loadConfig } from "../config/config.js";
+
+function readVikingConfig() {
+  const cfg = loadConfig();
+  const v = cfg.viking as Record<string, unknown> | undefined;
+  return {
+    enabled: typeof v?.enabled === "boolean" ? v.enabled : true,
+  };
+}
 
 // ========================
 // 类型
@@ -52,7 +60,7 @@ export interface SkillIndexEntry {
 // ========================
 
 function shouldSkipRouting(): boolean {
-  return !VIKING_ENABLED;
+  return !readVikingConfig().enabled;
 }
 
 // ========================

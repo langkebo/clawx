@@ -5,6 +5,7 @@ import type {
   SessionsUsageTotals,
   SessionUsageTimePoint,
 } from "../usage-types.ts";
+import type { VikingStatsSnapshot } from "../types.ts";
 
 export type UsageSessionEntry = SessionsUsageEntry;
 export type UsageTotals = SessionsUsageTotals;
@@ -29,9 +30,10 @@ export type UsageProps = {
   startDate: string;
   endDate: string;
   sessions: UsageSessionEntry[];
-  sessionsLimitReached: boolean; // True if 1000 session cap was hit
+  sessionsLimitReached: boolean;
   totals: UsageTotals | null;
   aggregates: UsageAggregates | null;
+  vikingStats: VikingStatsSnapshot | null;
   costDaily: CostDailyEntry[];
   selectedSessions: string[]; // Support multiple session selection
   selectedDays: string[]; // Support multiple day selection

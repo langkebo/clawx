@@ -234,6 +234,13 @@ const sectionIcons = {
       <polyline points="14 2 14 8 20 8"></polyline>
     </svg>
   `,
+  viking: html`
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="12" cy="12" r="10"></circle>
+      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
+      <path d="M2 12h20"></path>
+    </svg>
+  `,
 };
 
 // Section metadata
@@ -272,6 +279,7 @@ export const SECTION_META: Record<string, { label: string; description: string }
   canvasHost: { label: "Canvas Host", description: "Canvas rendering and display" },
   talk: { label: "Talk", description: "Voice and speech settings" },
   plugins: { label: "Plugins", description: "Plugin management and extensions" },
+  viking: { label: "Viking Routing", description: "Intelligent routing, cache, and optimization settings" },
 };
 
 function getSectionIcon(key: string) {

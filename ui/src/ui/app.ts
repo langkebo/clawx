@@ -78,6 +78,7 @@ import type {
   SkillStatusReport,
   StatusSummary,
   NostrProfile,
+  VikingStatsSnapshot,
 } from "./types.ts";
 import { type ChatAttachment, type ChatQueueItem, type CronFormState } from "./ui-types.ts";
 import type { NostrProfileFormState } from "./views/channels.nostr-profile-form.ts";
@@ -299,6 +300,8 @@ export class OpenClawApp extends LitElement {
   @state() cronRunsJobId: string | null = null;
   @state() cronRuns: CronRunLogEntry[] = [];
   @state() cronBusy = false;
+
+  @state() vikingStats: VikingStatsSnapshot | null = null;
 
   @state() skillsLoading = false;
   @state() skillsReport: SkillStatusReport | null = null;

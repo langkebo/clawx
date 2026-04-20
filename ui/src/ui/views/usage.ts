@@ -756,6 +756,7 @@ export function renderUsage(props: UsageProps) {
       displayTotals,
       activeAggregates,
       insightStats,
+      props.vikingStats,
       hasMissingCost,
       buildPeakErrorHours(aggregateSessions, props.timeZone),
       displaySessionCount,

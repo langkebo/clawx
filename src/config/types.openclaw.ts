@@ -97,6 +97,15 @@ export type OpenClawConfig = {
   talk?: TalkConfig;
   gateway?: GatewayConfig;
   memory?: MemoryConfig;
+  viking?: {
+    enabled?: boolean;
+    cacheMaxSize?: number;
+    cacheTtlMs?: number;
+    ruleEngine?: boolean;
+    dynamicReroute?: boolean;
+    feedbackLoop?: boolean;
+    routingModel?: string;
+  };
 };
 
 export type ConfigValidationIssue = {

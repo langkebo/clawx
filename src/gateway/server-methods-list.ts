@@ -92,6 +92,9 @@ const BASE_METHODS = [
   "chat.history",
   "chat.abort",
   "chat.send",
+  // Viking routing methods
+  "viking.stats",
+  "viking.cache.clear",
 ];
 
 export function listGatewayMethods(): string[] {

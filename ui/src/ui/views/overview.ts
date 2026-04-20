@@ -4,6 +4,7 @@ import { formatRelativeTimestamp, formatDurationHuman } from "../format.ts";
 import type { GatewayHelloOk } from "../gateway.ts";
 import { formatNextRun } from "../presenter.ts";
 import type { UiSettings } from "../storage.ts";
+import type { VikingStatsSnapshot } from "../types.ts";
 
 export type OverviewProps = {
   connected: boolean;
@@ -16,6 +17,7 @@ export type OverviewProps = {
   cronEnabled: boolean | null;
   cronNext: number | null;
   lastChannelsRefresh: number | null;
+  vikingStats: VikingStatsSnapshot | null;
   onSettingsChange: (next: UiSettings) => void;
   onPasswordChange: (next: string) => void;
   onSessionKeyChange: (next: string) => void;
@@ -272,6 +274,50 @@ export function renderOverview(props: OverviewProps) {
         <div class="muted">${t("overview.stats.cronNext", { time: formatNextRun(props.cronNext) })}</div>
       </div>
     </section>
+
+    ${
+      props.vikingStats
+        ? html`
+    <section class="card" style="margin-top: 18px;">
+      <div class="card-title">${t("overview.viking.title")}</div>
+      <div class="card-sub">${t("overview.viking.subtitle")}</div>
+      <div class="stat-grid" style="margin-top: 14px;">
+        <div class="stat">
+          <div class="stat-label">${t("overview.viking.enabled")}</div>
+          <div class="stat-value ${props.vikingStats.enabled ? "ok" : "warn"}">
+            ${props.vikingStats.enabled ? t("common.enabled") : t("common.disabled")}
+          </div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">${t("overview.viking.cacheHitRate")}</div>
+          <div class="stat-value">${(props.vikingStats.cache.hitRate * 100).toFixed(1)}%</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">${t("overview.viking.cacheSize")}</div>
+          <div class="stat-value">${props.vikingStats.cache.size}/${props.vikingStats.cache.maxSize}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">${t("overview.viking.totalRoutes")}</div>
+          <div class="stat-value">${props.vikingStats.routes.total}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">${t("overview.viking.ruleHitRate")}</div>
+          <div class="stat-value">${(props.vikingStats.routes.ruleHitRate * 100).toFixed(1)}%</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">${t("overview.viking.reroutes")}</div>
+          <div class="stat-value">${props.vikingStats.routes.reroutes}</div>
+        </div>
+      </div>
+      <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+        ${Object.entries(props.vikingStats.optimizations).map(([key, val]) => html`
+          <span class="chip ${val ? "ok" : "muted"}" title="${key}">${key.replace(/_/g, " ")}</span>
+        `)}
+      </div>
+    </section>
+    `
+        : ""
+    }
 
     <section class="card" style="margin-top: 18px;">
       <div class="card-title">${t("overview.notes.title")}</div>

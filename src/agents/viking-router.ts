@@ -17,17 +17,26 @@ import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import type { Api, Model } from "@mariozechner/pi-ai";
 import type { ModelRegistry } from "@mariozechner/pi-coding-agent";
+import { loadConfig } from "../config/config.js";
 import { log } from "./pi-embedded-runner/logger.ts";
 import type { PromptMode } from "./system-prompt.ts";
 
-// ========================
-// 总开关
-// ========================
-const VIKING_ENABLED = true;
+function readVikingConfig() {
+  const cfg = loadConfig();
+  const v = cfg.viking as Record<string, unknown> | undefined;
+  return {
+    enabled: typeof v?.enabled === "boolean" ? v.enabled : true,
+    cacheMaxSize: typeof v?.cacheMaxSize === "number" ? v.cacheMaxSize : 1000,
+    cacheTtlMs: typeof v?.cacheTtlMs === "number" ? v.cacheTtlMs : 5 * 60 * 1000,
+    ruleEngine: typeof v?.ruleEngine === "boolean" ? v.ruleEngine : true,
+    dynamicReroute: typeof v?.dynamicReroute === "boolean" ? v.dynamicReroute : true,
+    feedbackLoop: typeof v?.feedbackLoop === "boolean" ? v.feedbackLoop : true,
+    routingModel: typeof v?.routingModel === "string" ? v.routingModel : undefined,
+  };
+}
 
-// ========================
-// 路由缓存
-// ========================
+const CACHE_TTL_MS_DEFAULT = 5 * 60 * 1000;
+const CACHE_MAX_SIZE_DEFAULT = 1000;
 
 interface CacheEntry {
   result: VikingRouteResult;
@@ -35,20 +44,18 @@ interface CacheEntry {
 }
 
 const routingCache = new Map<string, CacheEntry>();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5分钟
-const CACHE_MAX_SIZE = 1000;
 
 function getCacheKey(prompt: string, toolNames: string[]): string {
   const hash = createHash("md5");
   hash.update(prompt);
-  hash.update(toolNames.sort().join(","));
+  hash.update(toolNames.toSorted().join(","));
   return hash.digest("hex");
 }
 
 function getCachedResult(prompt: string, toolNames: string[]): VikingRouteResult | null {
   const key = getCacheKey(prompt, toolNames);
   const entry = routingCache.get(key);
-  if (entry && Date.now() - entry.timestamp < CACHE_TTL_MS) {
+  if (entry && Date.now() - entry.timestamp < readVikingConfig().cacheTtlMs) {
     cacheHits++;
     log.info(`[viking] cache hit for prompt hash ${key.slice(0, 8)}`);
     return entry.result;
@@ -61,7 +68,7 @@ function getCachedResult(prompt: string, toolNames: string[]): VikingRouteResult
 }
 
 function setCachedResult(prompt: string, toolNames: string[], result: VikingRouteResult): void {
-  if (routingCache.size >= CACHE_MAX_SIZE) {
+  if (routingCache.size >= readVikingConfig().cacheMaxSize) {
     const oldestKey = routingCache.keys().next().value;
     if (oldestKey) {
       routingCache.delete(oldestKey);
@@ -94,9 +101,36 @@ export function invalidateCacheForTool(toolName: string): void {
 export function getRoutingCacheStats(): { size: number; maxSize: number; ttlMs: number; hitRate: number } {
   return {
     size: routingCache.size,
-    maxSize: CACHE_MAX_SIZE,
-    ttlMs: CACHE_TTL_MS,
+    maxSize: readVikingConfig().cacheMaxSize,
+    ttlMs: readVikingConfig().cacheTtlMs,
     hitRate: cacheHits / Math.max(cacheHits + cacheMisses, 1),
+  };
+}
+
+let totalRoutes = 0;
+let ruleHits = 0;
+let rerouteCount = 0;
+
+export function incrementRouteStats(opts: { ruleHit?: boolean; reroute?: boolean }): void {
+  totalRoutes++;
+  if (opts.ruleHit) ruleHits++;
+  if (opts.reroute) rerouteCount++;
+}
+
+export function getVikingFullStats(): {
+  enabled: boolean;
+  cache: { size: number; maxSize: number; ttlMs: number; hitRate: number };
+  routes: { total: number; ruleHits: number; ruleHitRate: number; reroutes: number };
+} {
+  return {
+    enabled: readVikingConfig().enabled,
+    cache: getRoutingCacheStats(),
+    routes: {
+      total: totalRoutes,
+      ruleHits,
+      ruleHitRate: ruleHits / Math.max(totalRoutes, 1),
+      reroutes: rerouteCount,
+    },
   };
 }
 
@@ -195,7 +229,7 @@ const FILE_DESCRIPTIONS: Record<string, string> = {
 // ========================
 
 function shouldSkipRouting(): boolean {
-  return !VIKING_ENABLED;
+  return !readVikingConfig().enabled;
 }
 
 // ========================
@@ -751,11 +785,11 @@ export async function vikingReRoute(params: {
   modelRegistry: ModelRegistry;
   provider: string;
 }): Promise<VikingReRouteResult> {
-  if (!VIKING_ENABLED) {
+  if (!readVikingConfig().enabled) {
     return { addTools: new Set(), removeTools: new Set(), addPacks: [] };
   }
 
-  const currentToolList = [...params.currentTools].sort();
+  const currentToolList = [...params.currentTools].toSorted();
   const allToolNames = params.allTools.map((t) => t.name);
   const missingTools = allToolNames.filter((n) => !params.currentTools.has(n));
 
@@ -835,7 +869,7 @@ export async function vikingRouteWithFeedback(params: {
   modelRegistry: ModelRegistry;
   provider: string;
 }): Promise<VikingRouteResult | null> {
-  if (!VIKING_ENABLED) return null;
+  if (!readVikingConfig().enabled) return null;
 
   const fb = params.feedback;
 
@@ -966,7 +1000,7 @@ export async function vikingParallelRoute(params: {
   workspaceDir?: string;
   concurrency?: number;
 }): Promise<ParallelRouteResult[]> {
-  if (!VIKING_ENABLED || params.tasks.length === 0) {
+  if (!readVikingConfig().enabled || params.tasks.length === 0) {
     return [];
   }
 

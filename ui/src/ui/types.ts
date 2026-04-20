@@ -554,6 +554,20 @@ export type StatusSummary = Record<string, unknown>;
 
 export type HealthSnapshot = Record<string, unknown>;
 
+export type VikingStatsSnapshot = {
+  enabled: boolean;
+  cache: { size: number; maxSize: number; ttlMs: number; hitRate: number };
+  routes: { total: number; ruleHits: number; ruleHitRate: number; reroutes: number };
+  optimizations: {
+    P0_dynamic_reroute: boolean;
+    P1_post_compact_reroute: boolean;
+    P2_model_switching: boolean;
+    P3_parallel_routing: boolean;
+    P4_rule_engine: boolean;
+    P5_feedback_loop: boolean;
+  };
+};
+
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 
 export type LogEntry = {

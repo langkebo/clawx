@@ -10,6 +10,7 @@ import { formatToolOutputForSidebar, getTruncatedPreview } from "./tool-helpers.
 export function extractToolCards(message: unknown): ToolCard[] {
   const m = message as Record<string, unknown>;
   const content = normalizeContent(m.content);
+  const routeTag = typeof m._routeTag === "string" ? m._routeTag : undefined;
   const cards: ToolCard[] = [];
 
   for (const item of content) {
@@ -22,6 +23,7 @@ export function extractToolCards(message: unknown): ToolCard[] {
         kind: "call",
         name: (item.name as string) ?? "tool",
         args: coerceArgs(item.arguments ?? item.args),
+        routeTag,
       });
     }
   }
@@ -33,7 +35,7 @@ export function extractToolCards(message: unknown): ToolCard[] {
     }
     const text = extractToolText(item);
     const name = typeof item.name === "string" ? item.name : "tool";
-    cards.push({ kind: "result", name, text });
+    cards.push({ kind: "result", name, text, routeTag });
   }
 
   if (isToolResultMessage(message) && !cards.some((card) => card.kind === "result")) {
@@ -42,7 +44,7 @@ export function extractToolCards(message: unknown): ToolCard[] {
       (typeof m.tool_name === "string" && m.tool_name) ||
       "tool";
     const text = extractTextCached(message) ?? undefined;
-    cards.push({ kind: "result", name, text });
+    cards.push({ kind: "result", name, text, routeTag });
   }
 
   return cards;
@@ -95,6 +97,7 @@ export function renderToolCardSidebar(card: ToolCard, onOpenSidebar?: (content: 
           <span class="chat-tool-card__icon">${icons[display.icon]}</span>
           <span>${display.label}</span>
         </div>
+        ${card.routeTag ? html`<span class="chat-tool-card__route-tag" title="Viking route">${card.routeTag}</span>` : nothing}
         ${
           canClick
             ? html`<span class="chat-tool-card__action">${hasText ? "View" : ""} ${icons.check}</span>`

@@ -22,6 +22,7 @@ struct MenuContent: View {
     @State private var micObserver = AudioInputDeviceObserver()
     @State private var micRefreshTask: Task<Void, Never>?
     @State private var browserControlEnabled = true
+    @State private var vikingStats: VikingStatsSnapshot?
     @AppStorage(cameraEnabledKey) private var cameraEnabled: Bool = false
     @AppStorage(appLogLevelKey) private var appLogLevelRaw: String = AppLogLevel.default.rawValue
     @AppStorage(debugFileLogEnabledKey) private var appFileLoggingEnabled: Bool = false
@@ -106,6 +107,7 @@ struct MenuContent: View {
                 self.voiceWakeMicMenu
             }
             Divider()
+            self.vikingRouteSection
             Button {
                 Task { @MainActor in
                     await self.openDashboard()
@@ -591,6 +593,41 @@ struct MenuContent: View {
         let name: String
         var id: String {
             self.uid
+        }
+    }
+
+    private var vikingRouteSection: some View {
+        Group {
+            if let stats = self.vikingStats {
+                VikingRouteMenuView(stats: stats)
+            } else {
+                HStack {
+                    Text("Viking Routing")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("Loading…")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.leading, 20)
+                .padding(.trailing, 10)
+                .padding(.vertical, 4)
+            }
+        }
+        .task {
+            await self.loadVikingStats()
+        }
+    }
+
+    @MainActor
+    private func loadVikingStats() async {
+        do {
+            let data = try await ControlChannel.shared.request(method: "viking.stats")
+            let decoded = try JSONDecoder().decode(VikingStatsSnapshot.self, from: data)
+            self.vikingStats = decoded
+        } catch {
+            self.vikingStats = nil
         }
     }
 }

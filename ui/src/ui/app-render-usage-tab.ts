@@ -27,6 +27,7 @@ export function renderUsageTab(state: AppViewState) {
     sessionsLimitReached: (state.usageResult?.sessions?.length ?? 0) >= 1000,
     totals: state.usageResult?.totals ?? null,
     aggregates: state.usageResult?.aggregates ?? null,
+    vikingStats: state.vikingStats ?? null,
     costDaily: state.usageCostSummary?.daily ?? [],
     selectedSessions: state.usageSelectedSessions,
     selectedDays: state.usageSelectedDays,
