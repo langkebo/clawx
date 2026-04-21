@@ -1,3 +1,4 @@
+import type { VikingStatsSnapshot } from "../types.ts";
 import type {
   CostUsageDailyEntry,
   SessionsUsageEntry,
@@ -5,7 +6,6 @@ import type {
   SessionsUsageTotals,
   SessionUsageTimePoint,
 } from "../usage-types.ts";
-import type { VikingStatsSnapshot } from "../types.ts";
 
 export type UsageSessionEntry = SessionsUsageEntry;
 export type UsageTotals = SessionsUsageTotals;

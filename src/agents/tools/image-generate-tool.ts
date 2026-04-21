@@ -9,12 +9,22 @@ import { jsonResult, readStringParam } from "./common.js";
 
 const ImageGenerateSchema = Type.Object({
   prompt: Type.String({ description: "Text description of the image to generate" }),
-  model: Type.Optional(Type.String({ description: "Model to use (e.g. openai/dall-e-3, stability/stable-diffusion-xl)" })),
-  size: Type.Optional(Type.String({ description: "Image size (e.g. 1024x1024, 512x512). Default depends on model." })),
-  quality: Type.Optional(Type.String({ description: "Quality level (e.g. standard, hd for DALL-E)" })),
+  model: Type.Optional(
+    Type.String({
+      description: "Model to use (e.g. openai/dall-e-3, stability/stable-diffusion-xl)",
+    }),
+  ),
+  size: Type.Optional(
+    Type.String({ description: "Image size (e.g. 1024x1024, 512x512). Default depends on model." }),
+  ),
+  quality: Type.Optional(
+    Type.String({ description: "Quality level (e.g. standard, hd for DALL-E)" }),
+  ),
   style: Type.Optional(Type.String({ description: "Style (e.g. vivid, natural for DALL-E)" })),
   n: Type.Optional(Type.Number({ description: "Number of images to generate (default: 1)" })),
-  outputDir: Type.Optional(Type.String({ description: "Directory to save generated images (default: workspace)" })),
+  outputDir: Type.Optional(
+    Type.String({ description: "Directory to save generated images (default: workspace)" }),
+  ),
 });
 
 type ImageGenerateResult = {
@@ -45,8 +55,12 @@ async function generateWithOpenAI(params: {
     size,
     n,
   };
-  if (params.quality) body.quality = params.quality;
-  if (params.style) body.style = params.style;
+  if (params.quality) {
+    body.quality = params.quality;
+  }
+  if (params.style) {
+    body.style = params.style;
+  }
 
   const response = await fetch(`${baseUrl}/images/generations`, {
     method: "POST",
@@ -111,7 +125,7 @@ export function createImageGenerateTool(options?: {
       const n = (params.n as number) || 1;
       const outputDir = readStringParam(params, "outputDir")
         ? resolveUserPath(readStringParam(params, "outputDir")!)
-        : normalizeWorkspaceDir(options?.workspaceDir) ?? process.cwd();
+        : (normalizeWorkspaceDir(options?.workspaceDir) ?? process.cwd());
 
       try {
         await fs.mkdir(outputDir, { recursive: true });

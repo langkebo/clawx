@@ -10,10 +10,10 @@
  * - 发送图片: https://open.dingtalk.com/document/orgapp/chatbots-send-one-on-one-chat-messages-in-batches
  */
 
+import * as fs from "fs";
+import * as path from "path";
 import { getAccessToken } from "./client.js";
 import type { DingtalkConfig, DingtalkSendResult } from "./types.js";
-import * as path from "path";
-import * as fs from "fs";
 
 /** 钉钉 API 基础 URL */
 const DINGTALK_API_BASE = "https://api.dingtalk.com";
@@ -61,9 +61,7 @@ export interface SendMediaParams {
  * @param fileName 文件名
  * @returns 媒体类型
  */
-export function detectMediaType(
-  fileName: string
-): "image" | "voice" | "video" | "file" {
+export function detectMediaType(fileName: string): "image" | "voice" | "video" | "file" {
   const ext = path.extname(fileName).toLowerCase();
 
   // 图片类型
@@ -92,9 +90,11 @@ export function detectMediaType(
  * @returns 媒体类型
  */
 export function detectMediaTypeFromContentType(
-  contentType: string | null
+  contentType: string | null,
 ): "image" | "voice" | "video" | "file" {
-  if (!contentType) return "file";
+  if (!contentType) {
+    return "file";
+  }
 
   const mime = contentType.split(";")[0].trim().toLowerCase();
 
@@ -123,7 +123,9 @@ export function detectMediaTypeFromContentType(
  * @returns 文件扩展名（含点号）或空字符串
  */
 function getExtensionFromContentType(contentType: string | null): string {
-  if (!contentType) return "";
+  if (!contentType) {
+    return "";
+  }
 
   const mime = contentType.split(";")[0].trim().toLowerCase();
 
@@ -145,7 +147,6 @@ function getExtensionFromContentType(contentType: string | null): string {
   return mimeToExt[mime] ?? "";
 }
 
-
 /**
  * 检查是否为本地文件路径
  *
@@ -154,11 +155,7 @@ function getExtensionFromContentType(contentType: string | null): string {
  */
 function isLocalPath(urlOrPath: string): boolean {
   // 以 / 或 ~ 开头，或 Windows 盘符
-  if (
-    urlOrPath.startsWith("/") ||
-    urlOrPath.startsWith("~") ||
-    /^[a-zA-Z]:/.test(urlOrPath)
-  ) {
+  if (urlOrPath.startsWith("/") || urlOrPath.startsWith("~") || /^[a-zA-Z]:/.test(urlOrPath)) {
     return true;
   }
 
@@ -190,9 +187,7 @@ export async function uploadMediaDingtalk(params: {
 
   // 验证凭证
   if (!cfg.clientId || !cfg.clientSecret) {
-    throw new Error(
-      "DingTalk credentials not configured (clientId, clientSecret required)"
-    );
+    throw new Error("DingTalk credentials not configured (clientId, clientSecret required)");
   }
 
   // 获取 Access Token
@@ -214,14 +209,12 @@ export async function uploadMediaDingtalk(params: {
         method: "POST",
         body: formData,
         signal: controller.signal,
-      }
+      },
     );
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
-        `DingTalk media upload failed: HTTP ${response.status} - ${errorText}`
-      );
+      throw new Error(`DingTalk media upload failed: HTTP ${response.status} - ${errorText}`);
     }
 
     const data = (await response.json()) as {
@@ -233,7 +226,7 @@ export async function uploadMediaDingtalk(params: {
 
     if (data.errcode && data.errcode !== 0) {
       throw new Error(
-        `DingTalk media upload failed: ${data.errmsg ?? "unknown error"} (code: ${data.errcode})`
+        `DingTalk media upload failed: ${data.errmsg ?? "unknown error"} (code: ${data.errcode})`,
       );
     }
 
@@ -247,16 +240,13 @@ export async function uploadMediaDingtalk(params: {
     };
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      throw new Error(
-        `DingTalk media upload timed out after ${UPLOAD_TIMEOUT}ms`
-      );
+      throw new Error(`DingTalk media upload timed out after ${UPLOAD_TIMEOUT}ms`, { cause: err });
     }
     throw err;
   } finally {
     clearTimeout(timeoutId);
   }
 }
-
 
 /**
  * 发送媒体消息到钉钉
@@ -270,16 +260,12 @@ export async function uploadMediaDingtalk(params: {
  * @returns 发送结果
  * @throws Error 如果发送失败
  */
-export async function sendMediaDingtalk(
-  params: SendMediaParams
-): Promise<DingtalkSendResult> {
+export async function sendMediaDingtalk(params: SendMediaParams): Promise<DingtalkSendResult> {
   const { cfg, to, mediaUrl, chatType, mediaBuffer, fileName } = params;
 
   // 验证凭证
   if (!cfg.clientId || !cfg.clientSecret) {
-    throw new Error(
-      "DingTalk credentials not configured (clientId, clientSecret required)"
-    );
+    throw new Error("DingTalk credentials not configured (clientId, clientSecret required)");
   }
 
   let buffer: Buffer;
@@ -310,9 +296,7 @@ export async function sendMediaDingtalk(
       try {
         const response = await fetch(mediaUrl, { signal: controller.signal });
         if (!response.ok) {
-          throw new Error(
-            `Failed to fetch media from URL: HTTP ${response.status}`
-          );
+          throw new Error(`Failed to fetch media from URL: HTTP ${response.status}`);
         }
 
         // 从 Content-Type 检测媒体类型
@@ -334,9 +318,7 @@ export async function sendMediaDingtalk(
         name = baseName;
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") {
-          throw new Error(
-            `Media download timed out after ${REQUEST_TIMEOUT}ms`
-          );
+          throw new Error(`Media download timed out after ${REQUEST_TIMEOUT}ms`, { cause: err });
         }
         throw err;
       } finally {
@@ -381,16 +363,13 @@ export async function sendMediaDingtalk(
   }
 }
 
-
 /**
  * 获取媒体消息的 msgKey
  *
  * @param mediaType 媒体类型
  * @returns msgKey
  */
-function getMsgKeyForMediaType(
-  mediaType: "image" | "voice" | "video" | "file"
-): string {
+function getMsgKeyForMediaType(mediaType: "image" | "voice" | "video" | "file"): string {
   switch (mediaType) {
     case "image":
       return "sampleImageMsg";
@@ -414,7 +393,7 @@ function getMsgKeyForMediaType(
  */
 function buildMediaMsgParam(
   mediaId: string,
-  mediaType: "image" | "voice" | "video" | "file"
+  mediaType: "image" | "voice" | "video" | "file",
 ): string {
   switch (mediaType) {
     case "image":
@@ -452,29 +431,24 @@ async function sendDirectMediaMessage(params: {
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
   try {
-    const response = await fetch(
-      `${DINGTALK_API_BASE}/v1.0/robot/oToMessages/batchSend`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-acs-dingtalk-access-token": accessToken,
-        },
-        body: JSON.stringify({
-          robotCode: cfg.clientId,
-          userIds: [to],
-          msgKey: getMsgKeyForMediaType(mediaType),
-          msgParam: buildMediaMsgParam(mediaId, mediaType),
-        }),
-        signal: controller.signal,
-      }
-    );
+    const response = await fetch(`${DINGTALK_API_BASE}/v1.0/robot/oToMessages/batchSend`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-acs-dingtalk-access-token": accessToken,
+      },
+      body: JSON.stringify({
+        robotCode: cfg.clientId,
+        userIds: [to],
+        msgKey: getMsgKeyForMediaType(mediaType),
+        msgParam: buildMediaMsgParam(mediaId, mediaType),
+      }),
+      signal: controller.signal,
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
-        `DingTalk direct media send failed: HTTP ${response.status} - ${errorText}`
-      );
+      throw new Error(`DingTalk direct media send failed: HTTP ${response.status} - ${errorText}`);
     }
 
     const data = (await response.json()) as {
@@ -487,9 +461,9 @@ async function sendDirectMediaMessage(params: {
     };
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      throw new Error(
-        `DingTalk direct media send timed out after ${REQUEST_TIMEOUT}ms`
-      );
+      throw new Error(`DingTalk direct media send timed out after ${REQUEST_TIMEOUT}ms`, {
+        cause: err,
+      });
     }
     throw err;
   } finally {
@@ -515,29 +489,24 @@ async function sendGroupMediaMessage(params: {
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
   try {
-    const response = await fetch(
-      `${DINGTALK_API_BASE}/v1.0/robot/groupMessages/send`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-acs-dingtalk-access-token": accessToken,
-        },
-        body: JSON.stringify({
-          robotCode: cfg.clientId,
-          openConversationId: to,
-          msgKey: getMsgKeyForMediaType(mediaType),
-          msgParam: buildMediaMsgParam(mediaId, mediaType),
-        }),
-        signal: controller.signal,
-      }
-    );
+    const response = await fetch(`${DINGTALK_API_BASE}/v1.0/robot/groupMessages/send`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-acs-dingtalk-access-token": accessToken,
+      },
+      body: JSON.stringify({
+        robotCode: cfg.clientId,
+        openConversationId: to,
+        msgKey: getMsgKeyForMediaType(mediaType),
+        msgParam: buildMediaMsgParam(mediaId, mediaType),
+      }),
+      signal: controller.signal,
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
-        `DingTalk group media send failed: HTTP ${response.status} - ${errorText}`
-      );
+      throw new Error(`DingTalk group media send failed: HTTP ${response.status} - ${errorText}`);
     }
 
     const data = (await response.json()) as {
@@ -550,9 +519,9 @@ async function sendGroupMediaMessage(params: {
     };
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      throw new Error(
-        `DingTalk group media send timed out after ${REQUEST_TIMEOUT}ms`
-      );
+      throw new Error(`DingTalk group media send timed out after ${REQUEST_TIMEOUT}ms`, {
+        cause: err,
+      });
     }
     throw err;
   } finally {

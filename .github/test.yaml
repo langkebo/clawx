@@ -7,7 +7,7 @@ jobs:
       - uses: pnpm/action-setup@v2
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: "24"
       - run: pnpm install
       - run: pnpm build
       - run: pnpm test -- --exclude "**/docker-setup.test.ts" --exclude "**/twitch/**" --exclude "**/nostr/**"

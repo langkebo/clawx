@@ -1,13 +1,18 @@
 /**
  * Property-Based Tests for DingTalk Message Parsing
- * 
+ *
  * Feature: dingtalk-integration
  * Property 2: 消息解析正确性
  */
 
-import { describe, it, expect } from "vitest";
 import * as fc from "fast-check";
-import { parseDingtalkMessage, checkDmPolicy, checkGroupPolicy, buildInboundContext } from "./bot.js";
+import { describe, it, expect } from "vitest";
+import {
+  parseDingtalkMessage,
+  checkDmPolicy,
+  checkGroupPolicy,
+  buildInboundContext,
+} from "./bot.js";
 import type { DingtalkRawMessage, DingtalkMessageContext } from "./types.js";
 
 describe("Feature: dingtalk-integration, Property 2: 消息解析正确性", () => {
@@ -20,10 +25,9 @@ describe("Feature: dingtalk-integration, Property 2: 消息解析正确性", () 
     conversationType: fc.constantFrom("1", "2") as fc.Arbitrary<"1" | "2">,
     conversationId: fc.string({ minLength: 1, maxLength: 100 }),
     msgtype: fc.constantFrom("text", "audio", "image", "file"),
-    text: fc.option(
-      fc.record({ content: fc.string({ minLength: 0, maxLength: 500 }) }),
-      { nil: undefined }
-    ),
+    text: fc.option(fc.record({ content: fc.string({ minLength: 0, maxLength: 500 }) }), {
+      nil: undefined,
+    }),
     content: fc.option(
       fc.record({
         downloadCode: fc.option(fc.string(), { nil: undefined }),
@@ -31,43 +35,46 @@ describe("Feature: dingtalk-integration, Property 2: 消息解析正确性", () 
         recognition: fc.option(fc.string({ minLength: 0, maxLength: 500 }), { nil: undefined }),
         fileName: fc.option(fc.string(), { nil: undefined }),
       }),
-      { nil: undefined }
+      { nil: undefined },
     ),
     atUsers: fc.option(
-      fc.array(fc.record({ dingtalkId: fc.string({ minLength: 1 }) }), { minLength: 0, maxLength: 5 }),
-      { nil: undefined }
+      fc.array(fc.record({ dingtalkId: fc.string({ minLength: 1 }) }), {
+        minLength: 0,
+        maxLength: 5,
+      }),
+      { nil: undefined },
     ),
     robotCode: fc.option(fc.string({ minLength: 1 }), { nil: undefined }),
   }) as fc.Arbitrary<DingtalkRawMessage>;
 
   /**
-   * Property: parseDingtalkMessage should correctly extract senderId, conversationId, 
+   * Property: parseDingtalkMessage should correctly extract senderId, conversationId,
    * msgtype and content from any valid raw message.
    */
   it("should correctly extract senderId, conversationId, msgtype and content", () => {
     fc.assert(
       fc.property(dingtalkRawMessageArb, (raw) => {
         const ctx = parseDingtalkMessage(raw);
-        
+
         // senderId should be preserved
         expect(ctx.senderId).toBe(raw.senderId);
-        
+
         // conversationId should be preserved
         expect(ctx.conversationId).toBe(raw.conversationId);
-        
+
         // contentType should match msgtype
         expect(ctx.contentType).toBe(raw.msgtype);
-        
+
         // messageId should be generated and contain conversationId
         expect(ctx.messageId).toContain(raw.conversationId);
-        
+
         // senderNick should be preserved
         expect(ctx.senderNick).toBe(raw.senderNick);
-        
+
         // robotCode should be preserved
         expect(ctx.robotCode).toBe(raw.robotCode);
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 
@@ -78,14 +85,14 @@ describe("Feature: dingtalk-integration, Property 2: 消息解析正确性", () 
     fc.assert(
       fc.property(dingtalkRawMessageArb, (raw) => {
         const ctx = parseDingtalkMessage(raw);
-        
+
         if (raw.conversationType === "1") {
           expect(ctx.chatType).toBe("direct");
         } else if (raw.conversationType === "2") {
           expect(ctx.chatType).toBe("group");
         }
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 
@@ -100,21 +107,20 @@ describe("Feature: dingtalk-integration, Property 2: 消息解析正确性", () 
       conversationId: fc.string({ minLength: 1, maxLength: 100 }),
       msgtype: fc.constant("text"),
       text: fc.record({ content: fc.string({ minLength: 0, maxLength: 500 }) }),
-      atUsers: fc.option(
-        fc.array(fc.record({ dingtalkId: fc.string({ minLength: 1 }) })),
-        { nil: undefined }
-      ),
+      atUsers: fc.option(fc.array(fc.record({ dingtalkId: fc.string({ minLength: 1 }) })), {
+        nil: undefined,
+      }),
       robotCode: fc.option(fc.string({ minLength: 1 }), { nil: undefined }),
     }) as fc.Arbitrary<DingtalkRawMessage>;
 
     fc.assert(
       fc.property(textMessageArb, (raw) => {
         const ctx = parseDingtalkMessage(raw);
-        
+
         // Content should be the trimmed text.content
         expect(ctx.content).toBe(raw.text!.content.trim());
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 
@@ -132,21 +138,20 @@ describe("Feature: dingtalk-integration, Property 2: 消息解析正确性", () 
         recognition: fc.string({ minLength: 0, maxLength: 500 }),
         duration: fc.option(fc.integer({ min: 0, max: 300 }), { nil: undefined }),
       }),
-      atUsers: fc.option(
-        fc.array(fc.record({ dingtalkId: fc.string({ minLength: 1 }) })),
-        { nil: undefined }
-      ),
+      atUsers: fc.option(fc.array(fc.record({ dingtalkId: fc.string({ minLength: 1 }) })), {
+        nil: undefined,
+      }),
       robotCode: fc.option(fc.string({ minLength: 1 }), { nil: undefined }),
     }) as fc.Arbitrary<DingtalkRawMessage>;
 
     fc.assert(
       fc.property(audioMessageArb, (raw) => {
         const ctx = parseDingtalkMessage(raw);
-        
+
         // Content should be the trimmed recognition text
         expect(ctx.content).toBe(raw.content!.recognition!.trim());
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 
@@ -175,7 +180,7 @@ describe("Feature: dingtalk-integration, Property 2: 消息解析正确性", () 
           expect(ctx.mentionedBot).toBe(true);
         }
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 
@@ -190,25 +195,23 @@ describe("Feature: dingtalk-integration, Property 2: 消息解析正确性", () 
       conversationId: fc.string({ minLength: 1, maxLength: 100 }),
       msgtype: fc.constantFrom("image", "file", "video"),
       // No text or content.recognition
-      atUsers: fc.option(
-        fc.array(fc.record({ dingtalkId: fc.string({ minLength: 1 }) })),
-        { nil: undefined }
-      ),
+      atUsers: fc.option(fc.array(fc.record({ dingtalkId: fc.string({ minLength: 1 }) })), {
+        nil: undefined,
+      }),
       robotCode: fc.option(fc.string({ minLength: 1 }), { nil: undefined }),
     }) as fc.Arbitrary<DingtalkRawMessage>;
 
     fc.assert(
       fc.property(unsupportedMessageArb, (raw) => {
         const ctx = parseDingtalkMessage(raw);
-        
+
         // Content should be empty for unsupported types
         expect(ctx.content).toBe("");
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 });
-
 
 describe("Feature: dingtalk-integration, Property 3: 策略检查正确性", () => {
   /**
@@ -218,7 +221,10 @@ describe("Feature: dingtalk-integration, Property 3: 策略检查正确性", () 
   it("should only allow senders in allowFrom when dmPolicy is allowlist", () => {
     const testArb = fc.record({
       senderId: fc.string({ minLength: 1, maxLength: 50 }),
-      allowFrom: fc.array(fc.string({ minLength: 1, maxLength: 50 }), { minLength: 0, maxLength: 10 }),
+      allowFrom: fc.array(fc.string({ minLength: 1, maxLength: 50 }), {
+        minLength: 0,
+        maxLength: 10,
+      }),
     });
 
     fc.assert(
@@ -231,12 +237,12 @@ describe("Feature: dingtalk-integration, Property 3: 策略检查正确性", () 
 
         const isInAllowlist = allowFrom.includes(senderId);
         expect(result.allowed).toBe(isInAllowlist);
-        
+
         if (!isInAllowlist) {
           expect(result.reason).toContain("not in DM allowlist");
         }
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 
@@ -261,7 +267,7 @@ describe("Feature: dingtalk-integration, Property 3: 策略检查正确性", () 
         // Should always be allowed for open and pairing policies
         expect(result.allowed).toBe(true);
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 
@@ -291,7 +297,7 @@ describe("Feature: dingtalk-integration, Property 3: 策略检查正确性", () 
         expect(result.allowed).toBe(false);
         expect(result.reason).toContain("group messages disabled");
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 
@@ -302,7 +308,10 @@ describe("Feature: dingtalk-integration, Property 3: 策略检查正确性", () 
   it("should only allow groups in groupAllowFrom when groupPolicy is allowlist", () => {
     const testArb = fc.record({
       conversationId: fc.string({ minLength: 1, maxLength: 100 }),
-      groupAllowFrom: fc.array(fc.string({ minLength: 1, maxLength: 100 }), { minLength: 0, maxLength: 10 }),
+      groupAllowFrom: fc.array(fc.string({ minLength: 1, maxLength: 100 }), {
+        minLength: 0,
+        maxLength: 10,
+      }),
       mentionedBot: fc.constant(true), // Always mentioned to isolate allowlist check
     });
 
@@ -318,12 +327,12 @@ describe("Feature: dingtalk-integration, Property 3: 策略检查正确性", () 
 
         const isInAllowlist = groupAllowFrom.includes(conversationId);
         expect(result.allowed).toBe(isInAllowlist);
-        
+
         if (!isInAllowlist) {
           expect(result.reason).toContain("not in allowlist");
         }
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 
@@ -348,12 +357,12 @@ describe("Feature: dingtalk-integration, Property 3: 策略检查正确性", () 
         });
 
         expect(result.allowed).toBe(mentionedBot);
-        
+
         if (!mentionedBot) {
           expect(result.reason).toContain("did not mention bot");
         }
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 
@@ -379,7 +388,7 @@ describe("Feature: dingtalk-integration, Property 3: 策略检查正确性", () 
         // Should always be allowed when requireMention is false
         expect(result.allowed).toBe(true);
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 
@@ -406,11 +415,10 @@ describe("Feature: dingtalk-integration, Property 3: 策略检查正确性", () 
         // Should always be allowed
         expect(result.allowed).toBe(true);
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 });
-
 
 describe("Feature: dingtalk-integration, Property 4: 上下文构建完整性", () => {
   /**
@@ -459,7 +467,7 @@ describe("Feature: dingtalk-integration, Property 4: 上下文构建完整性", 
         expect(inboundCtx.OriginatingChannel).toBe("dingtalk");
         expect(inboundCtx.OriginatingTo).toBeDefined();
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 
@@ -481,7 +489,7 @@ describe("Feature: dingtalk-integration, Property 4: 上下文构建完整性", 
         expect(inboundCtx.RawBody).toBe(ctx.content);
         expect(inboundCtx.CommandBody).toBe(ctx.content);
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 
@@ -505,7 +513,7 @@ describe("Feature: dingtalk-integration, Property 4: 上下文构建完整性", 
           expect(inboundCtx.From).toBe(`dingtalk:${ctx.senderId}`);
         }
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 
@@ -531,7 +539,7 @@ describe("Feature: dingtalk-integration, Property 4: 上下文构建完整性", 
           expect(inboundCtx.GroupSubject).toBeUndefined();
         }
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 
@@ -551,7 +559,7 @@ describe("Feature: dingtalk-integration, Property 4: 上下文构建完整性", 
 
         expect(inboundCtx.SenderName).toBe(ctx.senderNick);
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 });

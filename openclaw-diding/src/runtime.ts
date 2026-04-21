@@ -2,10 +2,10 @@
  * 钉钉插件运行时管理
  *
  * 提供对 Moltbot 核心运行时的访问。
- * 
+ *
  * 重要：这个模块存储完整的 PluginRuntime，包含 core.channel.routing、
  * core.channel.reply 等 API，用于消息分发到 Agent。
- * 
+ *
  * 使用方式：
  * 1. 插件注册时调用 setDingtalkRuntime(runtime) 设置完整 runtime
  * 2. 消息处理时调用 getDingtalkRuntime() 获取 runtime 进行分发
@@ -13,7 +13,7 @@
 
 /**
  * Moltbot 插件运行时接口
- * 
+ *
  * 包含 Moltbot 核心 API，用于：
  * - 路由解析 (channel.routing.resolveAgentRoute)
  * - 消息分发 (channel.reply.dispatchReplyFromConfig)
@@ -76,9 +76,9 @@ let runtime: PluginRuntime | null = null;
 
 /**
  * 设置钉钉插件运行时
- * 
+ *
  * 在插件注册时由 Moltbot 调用，传入完整的 PluginRuntime。
- * 
+ *
  * @param next Moltbot 插件运行时实例（完整版，包含 core API）
  */
 export function setDingtalkRuntime(next: PluginRuntime): void {
@@ -87,24 +87,26 @@ export function setDingtalkRuntime(next: PluginRuntime): void {
 
 /**
  * 获取钉钉插件运行时
- * 
+ *
  * 在消息处理时调用，获取完整的 runtime 用于分发消息到 Agent。
- * 
+ *
  * @returns Moltbot 插件运行时实例
  * @throws Error 如果运行时未初始化（插件未正确注册）
  */
 export function getDingtalkRuntime(): PluginRuntime {
   if (!runtime) {
-    throw new Error("Dingtalk runtime not initialized. Make sure the plugin is properly registered with Moltbot.");
+    throw new Error(
+      "Dingtalk runtime not initialized. Make sure the plugin is properly registered with Moltbot.",
+    );
   }
   return runtime;
 }
 
 /**
  * 检查运行时是否已初始化
- * 
+ *
  * 用于诊断和测试
- * 
+ *
  * @returns 是否已设置 runtime
  */
 export function isDingtalkRuntimeInitialized(): boolean {

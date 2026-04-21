@@ -96,7 +96,7 @@ const compactionTimestamps: number[] = [];
 function recordCompaction(): boolean {
   const now = Date.now();
   compactionTimestamps.push(now);
-  while (compactionTimestamps.length > 0 && now - compactionTimestamps[0]! > THRASHING_WINDOW_MS) {
+  while (compactionTimestamps.length > 0 && now - compactionTimestamps[0] > THRASHING_WINDOW_MS) {
     compactionTimestamps.shift();
   }
   const isThrashing = compactionTimestamps.length >= THRASHING_THRESHOLD;
@@ -680,7 +680,9 @@ export async function compactEmbeddedPiSessionDirect(
         // Thrashing 检测：记录 compaction 时间戳
         const isThrashing = recordCompaction();
         if (isThrashing) {
-          log.warn(`[viking] thrashing detected after compaction, consider reducing context or increasing model context window`);
+          log.warn(
+            `[viking] thrashing detected after compaction, consider reducing context or increasing model context window`,
+          );
         }
         // Estimate tokens after compaction by summing token estimates for remaining messages
         let tokensAfter: number | undefined;

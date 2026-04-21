@@ -4,6 +4,7 @@ import { CURRENT_SESSION_VERSION, SessionManager } from "@mariozechner/pi-coding
 import { resolveSessionAgentId } from "../../agents/agent-scope.js";
 import { resolveThinkingDefault } from "../../agents/model-selection.js";
 import { resolveAgentTimeoutMs } from "../../agents/timeout.js";
+import { getVikingRouteTag } from "../../agents/viking-router.js";
 import { dispatchInboundMessage } from "../../auto-reply/dispatch.js";
 import { createReplyDispatcher } from "../../auto-reply/reply/reply-dispatcher.js";
 import type { MsgContext } from "../../auto-reply/templating.js";
@@ -41,7 +42,6 @@ import {
 import { formatForLog } from "../ws-log.js";
 import { injectTimestamp, timestampOptsFromConfig } from "./agent-timestamp.js";
 import { normalizeRpcAttachmentsToChatAttachments } from "./attachment-normalize.js";
-import { getVikingRouteTag } from "../../agents/viking-router.js";
 import type { GatewayRequestContext, GatewayRequestHandlers } from "./types.js";
 
 type TranscriptAppendResult = {
@@ -626,7 +626,9 @@ export const chatHandlers: GatewayRequestHandlers = {
     const routeTag = getVikingRouteTag();
     const taggedMessages = routeTag
       ? bounded.messages.map((msg: unknown) => {
-          if (!msg || typeof msg !== "object") { return msg; }
+          if (!msg || typeof msg !== "object") {
+            return msg;
+          }
           return { ...(msg as Record<string, unknown>), _routeTag: routeTag };
         })
       : bounded.messages;

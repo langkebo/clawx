@@ -6,16 +6,16 @@
 
 ## 一、实施总览
 
-| 优化项 | 优先级 | 状态 | 涉及文件 |
-|--------|--------|------|----------|
-| P0: 工具动态再路由 | 🔴 高 | ✅ 已完成 | viking-router.ts, attempt.ts, handlers.tools.ts, handlers.types.ts, run.ts, params.ts |
-| P1: Compact 后重路由 | 🟡 中 | ✅ 已完成 | attempt.ts, compact.ts |
-| P2: 路由模型动态切换 | 🟡 中 | ✅ 已完成 | viking-router.ts, attempt.ts |
-| P3: 并行路由能力 | 🟢 低 | ✅ 已完成 | viking-router.ts |
-| P4: 路径级规则引擎 | 🟢 低 | ✅ 已完成 | viking-router.ts, .viking/rules/ |
-| P5: 验证反馈回路 | 🟢 低 | ✅ 已完成 | viking-router.ts, attempt.ts, handlers.tools.ts, subscribe.ts, run.ts, types.ts |
-| 额外: 路由缓存优化 | — | ✅ 已完成 | viking-router.ts |
-| 额外: Thrashing 检测 | — | ✅ 已完成 | compact.ts, attempt.ts |
+| 优化项               | 优先级 | 状态      | 涉及文件                                                                              |
+| -------------------- | ------ | --------- | ------------------------------------------------------------------------------------- |
+| P0: 工具动态再路由   | 🔴 高  | ✅ 已完成 | viking-router.ts, attempt.ts, handlers.tools.ts, handlers.types.ts, run.ts, params.ts |
+| P1: Compact 后重路由 | 🟡 中  | ✅ 已完成 | attempt.ts, compact.ts                                                                |
+| P2: 路由模型动态切换 | 🟡 中  | ✅ 已完成 | viking-router.ts, attempt.ts                                                          |
+| P3: 并行路由能力     | 🟢 低  | ✅ 已完成 | viking-router.ts                                                                      |
+| P4: 路径级规则引擎   | 🟢 低  | ✅ 已完成 | viking-router.ts, .viking/rules/                                                      |
+| P5: 验证反馈回路     | 🟢 低  | ✅ 已完成 | viking-router.ts, attempt.ts, handlers.tools.ts, subscribe.ts, run.ts, types.ts       |
+| 额外: 路由缓存优化   | —      | ✅ 已完成 | viking-router.ts                                                                      |
+| 额外: Thrashing 检测 | —      | ✅ 已完成 | compact.ts, attempt.ts                                                                |
 
 **构建状态**: ✅ TypeScript 编译通过，pnpm build 成功
 **测试状态**: ✅ 97 个单元测试全部通过（0 回归）
@@ -29,6 +29,7 @@
 **问题**: Viking 在 turn 1 路由后工具就固定了，如果模型发现需要未加载的工具，只能降级。
 
 **实施方案**:
+
 1. 新增 `vikingReRoute()` 函数 — 当工具调用失败时，用路由模型判断需要补充哪些能力包
 2. 在 `attempt.ts` 的 attempt 入口处检测 `previousToolError.missingToolName`，触发 `vikingRouteWithFeedback()`
 3. 在 `handlers.tools.ts` 的工具错误处理中，通过正则匹配 `not found|not available|unknown tool` 等模式，标记 `vikingMissingTool`
@@ -65,11 +66,11 @@ export async function vikingRouteWithFeedback(params: {
 
 **优化前后对比**:
 
-| 指标 | 优化前 | 优化后 |
-|------|--------|--------|
-| 工具缺失处理 | 静默降级，用户需手动重试 | 自动补充缺失工具及关联能力包 |
-| 路由纠偏能力 | 无 | 有（P0 + P5 双重保障） |
-| Context 溢出处理 | 无 | 自动降级到 L0 |
+| 指标             | 优化前                   | 优化后                       |
+| ---------------- | ------------------------ | ---------------------------- |
+| 工具缺失处理     | 静默降级，用户需手动重试 | 自动补充缺失工具及关联能力包 |
+| 路由纠偏能力     | 无                       | 有（P0 + P5 双重保障）       |
+| Context 溢出处理 | 无                       | 自动降级到 L0                |
 
 ---
 
@@ -78,6 +79,7 @@ export async function vikingRouteWithFeedback(params: {
 **问题**: auto-compact 清理旧工具输出后，之前路由加载的工具可能不再需要，需要重新评估。
 
 **实施方案**:
+
 1. 在 `attempt.ts` 的 compaction 完成后，调用 `vikingReRoute()` 重新评估工具需求
 2. 集成 Thrashing 检测：如果 60 秒内发生 3 次以上 compact，降级到 L0 而非继续重路由
 3. 在 `compact.ts` 中新增 `recordCompaction()`、`isThrashingDetected()`、`resetThrashingState()` 函数
@@ -112,11 +114,11 @@ if (!routingDecision.skipped && getCompactionCount() > 0 && !promptError) {
 
 **优化前后对比**:
 
-| 指标 | 优化前 | 优化后 |
-|------|--------|--------|
-| Compact 后工具调整 | 无（工具集固定） | 自动重新评估并补充/移除工具 |
-| Thrashing 保护 | 无（可能无限循环） | 60s/3次阈值检测 + L0 降级 |
-| Context 利用率 | Compact 后可能浪费 | Compact 后精准匹配当前需求 |
+| 指标               | 优化前             | 优化后                      |
+| ------------------ | ------------------ | --------------------------- |
+| Compact 后工具调整 | 无（工具集固定）   | 自动重新评估并补充/移除工具 |
+| Thrashing 保护     | 无（可能无限循环） | 60s/3次阈值检测 + L0 降级   |
+| Context 利用率     | Compact 后可能浪费 | Compact 后精准匹配当前需求  |
 
 ---
 
@@ -125,6 +127,7 @@ if (!routingDecision.skipped && getCompactionCount() > 0 && !promptError) {
 **问题**: 简单的"你好"和复杂的"重构整个认证模块"用同一个路由模型浪费成本。
 
 **实施方案**:
+
 1. 新增 `classifyPromptComplexity()` 函数，按 prompt 内容分类为 simple/moderate/complex
 2. 简单问候 → Qwen2.5-7B（maxTokens=50）
 3. 复杂任务 → Qwen2.5-72B（maxTokens=300）
@@ -135,14 +138,26 @@ if (!routingDecision.skipped && getCompactionCount() > 0 && !promptError) {
 
 ```typescript
 export function classifyPromptComplexity(prompt: string, timeline?: string): RoutingModelChoice {
-  const simplePatterns = /^(你好|hi|hello|谢谢|好的|是|否|ok|yes|no|嗯|对|行|拜|再见|bye)[!！。.？?~～]*$/i;
+  const simplePatterns =
+    /^(你好|hi|hello|谢谢|好的|是|否|ok|yes|no|嗯|对|行|拜|再见|bye)[!！。.？?~～]*$/i;
   if (simplePatterns.test(trimmed)) {
-    return { maxTokens: 50, complexity: "simple", preferredModel: "Qwen/Qwen2.5-7B-Instruct", preferredProvider: "siliconflow" };
+    return {
+      maxTokens: 50,
+      complexity: "simple",
+      preferredModel: "Qwen/Qwen2.5-7B-Instruct",
+      preferredProvider: "siliconflow",
+    };
   }
 
-  const complexKeywords = /重构|架构|迁移|安全|优化|分析|对比|设计|review|调试|排查|修复|部署|监控|测试|性能|集成|升级|合并/i;
+  const complexKeywords =
+    /重构|架构|迁移|安全|优化|分析|对比|设计|review|调试|排查|修复|部署|监控|测试|性能|集成|升级|合并/i;
   if (complexKeywords.test(trimmed) || (timeline && timeline.length > 2000)) {
-    return { maxTokens: 300, complexity: "complex", preferredModel: "Qwen/Qwen2.5-72B-Instruct", preferredProvider: "siliconflow" };
+    return {
+      maxTokens: 300,
+      complexity: "complex",
+      preferredModel: "Qwen/Qwen2.5-72B-Instruct",
+      preferredProvider: "siliconflow",
+    };
   }
   // ...
 }
@@ -150,12 +165,12 @@ export function classifyPromptComplexity(prompt: string, timeline?: string): Rou
 
 **优化前后对比**:
 
-| 指标 | 优化前 | 优化后 |
-|------|--------|--------|
-| 路由模型选择 | 全局固定配置 | 按 prompt 复杂度动态切换 |
-| 简单任务路由成本 | 100%（基线） | ~20%（7B 模型 + 50 tokens） |
-| 复杂任务路由质量 | 可能不足 | 72B 模型 + 300 tokens |
-| 路由模型 fallback | 无 | 首选模型不可用时回退默认 |
+| 指标              | 优化前       | 优化后                      |
+| ----------------- | ------------ | --------------------------- |
+| 路由模型选择      | 全局固定配置 | 按 prompt 复杂度动态切换    |
+| 简单任务路由成本  | 100%（基线） | ~20%（7B 模型 + 50 tokens） |
+| 复杂任务路由质量  | 可能不足     | 72B 模型 + 300 tokens       |
+| 路由模型 fallback | 无           | 首选模型不可用时回退默认    |
 
 ---
 
@@ -164,6 +179,7 @@ export function classifyPromptComplexity(prompt: string, timeline?: string): Rou
 **问题**: 当用户请求涉及多个独立子任务时，当前是串行处理。
 
 **实施方案**:
+
 1. 新增 `vikingParallelRoute()` 函数，支持多子任务并发路由
 2. 内置 worker 池模式，默认并发度 3
 3. 每个子任务独立路由，优先尝试规则引擎（零成本），失败后走路由模型
@@ -197,11 +213,11 @@ export async function vikingParallelRoute(params: {
 
 **优化前后对比**:
 
-| 指标 | 优化前 | 优化后 |
-|------|--------|--------|
-| 多任务路由 | 串行，N 个任务耗时 N×T | 并行，N 个任务耗时 ~T（concurrency=3） |
-| 错误隔离 | 无 | 单任务失败不影响其他 |
-| 规则引擎集成 | 无 | 优先零成本规则路由 |
+| 指标         | 优化前                 | 优化后                                 |
+| ------------ | ---------------------- | -------------------------------------- |
+| 多任务路由   | 串行，N 个任务耗时 N×T | 并行，N 个任务耗时 ~T（concurrency=3） |
+| 错误隔离     | 无                     | 单任务失败不影响其他                   |
+| 规则引擎集成 | 无                     | 优先零成本规则路由                     |
 
 ---
 
@@ -210,6 +226,7 @@ export async function vikingParallelRoute(params: {
 **问题**: Viking 的路由规则是硬编码的能力包映射，无法按项目/文件类型差异化。
 
 **实施方案**:
+
 1. 新增 YAML 规则文件支持，放置在 `.viking/rules/` 目录下
 2. 规则匹配条件：`filePatterns`（文件类型匹配）、`promptMaxLength`（prompt 长度）、`noFileContext`（无文件上下文）
 3. 规则动作：指定 `packs` 和 `promptMode`
@@ -244,12 +261,12 @@ export function tryRuleBasedRoute(context: {
 
 **优化前后对比**:
 
-| 指标 | 优化前 | 优化后 |
-|------|--------|--------|
-| 路由策略定制 | 硬编码 | YAML 规则文件，项目级自定义 |
+| 指标             | 优化前           | 优化后                         |
+| ---------------- | ---------------- | ------------------------------ |
+| 路由策略定制     | 硬编码           | YAML 规则文件，项目级自定义    |
 | 常见模式路由成本 | 每次调用路由模型 | 零成本（规则命中跳过模型调用） |
-| 路由模型调用次数 | 100% | 预计减少 60-90% |
-| 规则热更新 | 不支持 | 修改 YAML 文件即可生效 |
+| 路由模型调用次数 | 100%             | 预计减少 60-90%                |
+| 规则热更新       | 不支持           | 修改 YAML 文件即可生效         |
 
 ---
 
@@ -258,6 +275,7 @@ export function tryRuleBasedRoute(context: {
 **问题**: 路由失败后缺乏自动纠正机制。
 
 **实施方案**:
+
 1. 新增 `vikingRouteWithFeedback()` 函数，支持 `tool_missing`、`tool_error`、`context_overflow` 三种反馈类型
 2. `tool_missing` → 自动查找缺失工具所属能力包，补充整个包
 3. `context_overflow` → 自动降级到 L0
@@ -268,7 +286,10 @@ export function tryRuleBasedRoute(context: {
 
 ```typescript
 // handlers.tools.ts — 实时检测工具缺失
-if (errorMessage && /not found|not available|unknown tool|no tool named|tool.*missing/i.test(errorMessage)) {
+if (
+  errorMessage &&
+  /not found|not available|unknown tool|no tool named|tool.*missing/i.test(errorMessage)
+) {
   ctx.state.vikingMissingTool = toolName;
 }
 
@@ -283,17 +304,18 @@ function reverseLookupPack(toolName: string): string | null {
 
 **优化前后对比**:
 
-| 指标 | 优化前 | 优化后 |
-|------|--------|--------|
-| 工具缺失检测 | 无 | 实时正则匹配 + 状态标记 |
-| 自动纠正 | 无 | 缺失工具 → 补充能力包 → 下次 attempt 自动生效 |
-| Context 溢出保护 | 无 | 自动降级 L0 |
+| 指标             | 优化前 | 优化后                                        |
+| ---------------- | ------ | --------------------------------------------- |
+| 工具缺失检测     | 无     | 实时正则匹配 + 状态标记                       |
+| 自动纠正         | 无     | 缺失工具 → 补充能力包 → 下次 attempt 自动生效 |
+| Context 溢出保护 | 无     | 自动降级 L0                                   |
 
 ---
 
 ### 额外优化: 路由缓存增强
 
 **实施方案**:
+
 1. 新增 `invalidateCacheForTool()` — 按工具名精准失效缓存条目
 2. 新增 `getRoutingCacheStats()` — 返回缓存命中率，便于监控
 3. 缓存命中/未命中计数器 `cacheHits` / `cacheMisses`
@@ -302,10 +324,10 @@ function reverseLookupPack(toolName: string): string | null {
 
 **优化前后对比**:
 
-| 指标 | 优化前 | 优化后 |
-|------|--------|--------|
-| 缓存失效策略 | 仅 TTL 过期 | TTL + 按工具精准失效 |
-| 缓存监控 | 无 | 命中率、大小、TTL 可查 |
+| 指标         | 优化前           | 优化后                 |
+| ------------ | ---------------- | ---------------------- |
+| 缓存失效策略 | 仅 TTL 过期      | TTL + 按工具精准失效   |
+| 缓存监控     | 无               | 命中率、大小、TTL 可查 |
 | 过期条目清理 | 被动（LRU 淘汰） | 主动（读取时删除过期） |
 
 ---
@@ -313,6 +335,7 @@ function reverseLookupPack(toolName: string): string | null {
 ### 额外优化: Thrashing 检测
 
 **实施方案**:
+
 1. 在 `compact.ts` 中新增 compaction 时间戳记录
 2. 60 秒窗口内 3 次 compact 即判定为 thrashing
 3. Thrashing 时降级到 L0，避免无限 compact 循环
@@ -322,26 +345,28 @@ function reverseLookupPack(toolName: string): string | null {
 
 ## 三、Bug 修复记录
 
-| Bug | 描述 | 修复 |
-|-----|------|------|
-| vikingReRoute JSON 字段不匹配 | prompt 请求 `addPacks` 字段但 `callRoutingModel` 解析 `packs` 字段 | 统一为 `packs` 字段 |
-| ModelRegistry.getModel 不存在 | 尝试调用不存在的 `getModel` 方法 | 改用 `getAll()` + `find()` |
-| ToolHandlerState 缺少 vikingMissingTool | 新增字段未同步到 Pick 类型 | 添加到 Pick 列表 |
-| P0/P5 反馈回路断裂 | `vikingMissingTool` 在 handler 中设置但未传递到下一次 attempt | 新增 `vikingMissingTool` 到 `EmbeddedRunAttemptResult`、`subscribe.ts` 导出 `getVikingMissingTool`、`run.ts` 跟踪 `vikingPreviousToolError`、`attempt.ts` 读取并触发 P0 再路由 |
-| vikingMissingTool 未清理 | 工具成功调用后 `vikingMissingTool` 仍残留，导致不必要的再路由 | 在 `handlers.tools.ts` 工具成功时清除 `vikingMissingTool = undefined` |
-| P0 路由缓存未失效 | P0 再路由后缓存保留旧工具集 | 新增 `invalidateCacheForTool()` 在 P0 再路由后精准失效缓存 |
+| Bug                                     | 描述                                                               | 修复                                                                                                                                                                           |
+| --------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| vikingReRoute JSON 字段不匹配           | prompt 请求 `addPacks` 字段但 `callRoutingModel` 解析 `packs` 字段 | 统一为 `packs` 字段                                                                                                                                                            |
+| ModelRegistry.getModel 不存在           | 尝试调用不存在的 `getModel` 方法                                   | 改用 `getAll()` + `find()`                                                                                                                                                     |
+| ToolHandlerState 缺少 vikingMissingTool | 新增字段未同步到 Pick 类型                                         | 添加到 Pick 列表                                                                                                                                                               |
+| P0/P5 反馈回路断裂                      | `vikingMissingTool` 在 handler 中设置但未传递到下一次 attempt      | 新增 `vikingMissingTool` 到 `EmbeddedRunAttemptResult`、`subscribe.ts` 导出 `getVikingMissingTool`、`run.ts` 跟踪 `vikingPreviousToolError`、`attempt.ts` 读取并触发 P0 再路由 |
+| vikingMissingTool 未清理                | 工具成功调用后 `vikingMissingTool` 仍残留，导致不必要的再路由      | 在 `handlers.tools.ts` 工具成功时清除 `vikingMissingTool = undefined`                                                                                                          |
+| P0 路由缓存未失效                       | P0 再路由后缓存保留旧工具集                                        | 新增 `invalidateCacheForTool()` 在 P0 再路由后精准失效缓存                                                                                                                     |
 
 ---
 
 ## 四、测试验证
 
 ### 构建验证
+
 ```
 ✅ pnpm build — 成功 (284 files, 7455.26 kB)
 ✅ tsgo --noEmit — 类型检查通过
 ```
 
 ### 单元测试
+
 ```
 ✅ tool-mutation.test.ts — 5 tests passed
 ✅ tool-loop-detection.test.ts — 29 tests passed
@@ -372,16 +397,16 @@ function reverseLookupPack(toolName: string): string | null {
 
 ## 六、与 Claude Code 对比（优化后）
 
-| 维度 | Claude Code | Viking 优化后 | 差距评估 |
-|------|-------------|---------------|----------|
-| 工具选择 | Tool Search 按需发现 | P0 动态再路由 + P5 反馈回路 | ✅ 基本等价 |
-| Context 管理 | auto compact + thrashing | L0/L1/L2 + P1 重路由 + thrashing 检测 | ✅ Viking 更优 |
-| 多模型 | 3 个模型分层 | 18+ Provider + P2 动态切换 | ✅ Viking 更优 |
-| 记忆 | CLAUDE.md + Auto Memory | L0 时间线 + active_memory + P4 规则 | ✅ 基本等价 |
-| 并行 | Subagent 并行隔离 | P3 并行路由 | ⚠️ 路由层等价，执行层待完善 |
-| Hook | 7 种 hook 事件 | P5 反馈回路 + 工具拦截 | ⚠️ 部分等价 |
-| 验证 | 内置 verify 循环 | P5 反馈自纠正 | ⚠️ 部分等价 |
-| 路由缓存 | 无显式缓存 | LRU + TTL + 命中率 + 精准失效 | ✅ Viking 更优 |
+| 维度         | Claude Code              | Viking 优化后                         | 差距评估                    |
+| ------------ | ------------------------ | ------------------------------------- | --------------------------- |
+| 工具选择     | Tool Search 按需发现     | P0 动态再路由 + P5 反馈回路           | ✅ 基本等价                 |
+| Context 管理 | auto compact + thrashing | L0/L1/L2 + P1 重路由 + thrashing 检测 | ✅ Viking 更优              |
+| 多模型       | 3 个模型分层             | 18+ Provider + P2 动态切换            | ✅ Viking 更优              |
+| 记忆         | CLAUDE.md + Auto Memory  | L0 时间线 + active_memory + P4 规则   | ✅ 基本等价                 |
+| 并行         | Subagent 并行隔离        | P3 并行路由                           | ⚠️ 路由层等价，执行层待完善 |
+| Hook         | 7 种 hook 事件           | P5 反馈回路 + 工具拦截                | ⚠️ 部分等价                 |
+| 验证         | 内置 verify 循环         | P5 反馈自纠正                         | ⚠️ 部分等价                 |
+| 路由缓存     | 无显式缓存               | LRU + TTL + 命中率 + 精准失效         | ✅ Viking 更优              |
 
 ---
 
@@ -395,4 +420,4 @@ function reverseLookupPack(toolName: string): string | null {
 
 ---
 
-*报告生成时间: 2026-04-13 | 基于 OPTIMIZATION_PLAN.md v1.0 | v2.0 更新: 反馈回路修复 + 缓存失效修复*
+_报告生成时间: 2026-04-13 | 基于 OPTIMIZATION_PLAN.md v1.0 | v2.0 更新: 反馈回路修复 + 缓存失效修复_

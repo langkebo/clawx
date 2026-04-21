@@ -1,6 +1,6 @@
 /**
  * 钉钉 Stream SDK 客户端封装
- * 
+ *
  * 提供:
  * - DWClient 实例创建和缓存
  * - Access Token 获取和缓存管理
@@ -19,15 +19,16 @@ interface DingtalkClientOptions {
 }
 
 /** 缓存的客户端实例 */
+// oxlint-disable-next-line no-redundant-type-constituents: DWClient is untyped from dingtalk-stream SDK
 let cachedClient: DWClient | null = null;
 /** 缓存的配置（用于比较是否需要重建客户端） */
 let cachedConfig: { clientId: string; clientSecret: string } | null = null;
 
 /**
  * 创建钉钉 Stream 客户端
- * 
+ *
  * 如果已存在相同配置的客户端实例，则返回缓存的实例。
- * 
+ *
  * @param opts 客户端配置选项
  * @returns DWClient 实例
  */
@@ -60,7 +61,7 @@ export function createDingtalkClient(opts: DingtalkClientOptions): DWClient {
 
 /**
  * 从配置创建钉钉 Stream 客户端
- * 
+ *
  * @param cfg 钉钉配置
  * @returns DWClient 实例
  * @throws Error 如果凭证未配置
@@ -75,14 +76,13 @@ export function createDingtalkClientFromConfig(cfg: DingtalkConfig): DWClient {
 
 /**
  * 清除客户端缓存
- * 
+ *
  * 用于测试或需要强制重建客户端的场景
  */
 export function clearClientCache(): void {
   cachedClient = null;
   cachedConfig = null;
 }
-
 
 // ============================================================================
 // Access Token 管理
@@ -112,20 +112,17 @@ const tokenCacheMap = new Map<string, TokenCache>();
 
 /**
  * 获取钉钉 Access Token
- * 
+ *
  * 实现 token 缓存和自动刷新：
  * - 如果缓存的 token 未过期（提前 5 分钟），返回缓存的 token
  * - 否则从钉钉 OAuth 端点获取新 token
- * 
+ *
  * @param clientId 钉钉应用 AppKey
  * @param clientSecret 钉钉应用 AppSecret
  * @returns Access Token 字符串
  * @throws Error 如果获取 token 失败
  */
-export async function getAccessToken(
-  clientId: string,
-  clientSecret: string
-): Promise<string> {
+export async function getAccessToken(clientId: string, clientSecret: string): Promise<string> {
   const now = Date.now();
   const cached = tokenCacheMap.get(clientId);
 
@@ -154,7 +151,7 @@ export async function getAccessToken(
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(
-        `Failed to get DingTalk access token: HTTP ${response.status} - ${errorText}`
+        `Failed to get DingTalk access token: HTTP ${response.status} - ${errorText}`,
       );
     }
 
@@ -178,7 +175,9 @@ export async function getAccessToken(
     return data.accessToken;
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      throw new Error(`DingTalk access token request timed out after ${TOKEN_REQUEST_TIMEOUT}ms`);
+      throw new Error(`DingTalk access token request timed out after ${TOKEN_REQUEST_TIMEOUT}ms`, {
+        cause: err,
+      });
     }
     throw err;
   } finally {
@@ -188,7 +187,7 @@ export async function getAccessToken(
 
 /**
  * 从配置获取 Access Token
- * 
+ *
  * @param cfg 钉钉配置
  * @returns Access Token 字符串
  * @throws Error 如果凭证未配置或获取 token 失败
@@ -203,7 +202,7 @@ export async function getAccessTokenFromConfig(cfg: DingtalkConfig): Promise<str
 
 /**
  * 清除 Token 缓存
- * 
+ *
  * @param clientId 可选，指定要清除的 clientId。如果不指定则清除所有缓存
  */
 export function clearTokenCache(clientId?: string): void {
@@ -216,21 +215,23 @@ export function clearTokenCache(clientId?: string): void {
 
 /**
  * 检查 Token 是否已缓存且有效
- * 
+ *
  * 用于测试和诊断
- * 
+ *
  * @param clientId 钉钉应用 AppKey
  * @returns 是否有有效的缓存 token
  */
 export function isTokenCached(clientId: string): boolean {
   const cached = tokenCacheMap.get(clientId);
-  if (!cached) return false;
+  if (!cached) {
+    return false;
+  }
   return cached.expiresAt > Date.now() + TOKEN_REFRESH_BUFFER;
 }
 
 /**
  * 获取 Token 缓存信息（用于测试）
- * 
+ *
  * @param clientId 钉钉应用 AppKey
  * @returns Token 缓存信息或 undefined
  */

@@ -68,9 +68,7 @@ interface DingtalkApiError {
  * @returns 发送结果
  * @throws Error 如果凭证未配置或 API 调用失败
  */
-export async function sendMessageDingtalk(
-  params: SendMessageParams
-): Promise<DingtalkSendResult> {
+export async function sendMessageDingtalk(params: SendMessageParams): Promise<DingtalkSendResult> {
   const { cfg, to, text, chatType, title } = params;
 
   // 验证凭证
@@ -90,7 +88,6 @@ export async function sendMessageDingtalk(
     return sendGroupMessage({ cfg, to, text, accessToken, title: msgTitle });
   }
 }
-
 
 /**
  * 发送单聊消息
@@ -113,23 +110,20 @@ async function sendDirectMessage(params: {
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
   try {
-    const response = await fetch(
-      `${DINGTALK_API_BASE}/v1.0/robot/oToMessages/batchSend`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-acs-dingtalk-access-token": accessToken,
-        },
-        body: JSON.stringify({
-          robotCode: cfg.clientId,
-          userIds: [to],
-          msgKey: "sampleMarkdown",
-          msgParam: JSON.stringify({ title, text }),
-        }),
-        signal: controller.signal,
-      }
-    );
+    const response = await fetch(`${DINGTALK_API_BASE}/v1.0/robot/oToMessages/batchSend`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-acs-dingtalk-access-token": accessToken,
+      },
+      body: JSON.stringify({
+        robotCode: cfg.clientId,
+        userIds: [to],
+        msgKey: "sampleMarkdown",
+        msgParam: JSON.stringify({ title, text }),
+      }),
+      signal: controller.signal,
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -156,7 +150,7 @@ async function sendDirectMessage(params: {
     // 检查是否有无效用户
     if (data.invalidStaffIdList && data.invalidStaffIdList.length > 0) {
       throw new Error(
-        `DingTalk direct message send failed: invalid user IDs: ${data.invalidStaffIdList.join(", ")}`
+        `DingTalk direct message send failed: invalid user IDs: ${data.invalidStaffIdList.join(", ")}`,
       );
     }
 
@@ -166,7 +160,9 @@ async function sendDirectMessage(params: {
     };
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      throw new Error(`DingTalk direct message send timed out after ${REQUEST_TIMEOUT}ms`);
+      throw new Error(`DingTalk direct message send timed out after ${REQUEST_TIMEOUT}ms`, {
+        cause: err,
+      });
     }
     throw err;
   } finally {
@@ -195,23 +191,20 @@ async function sendGroupMessage(params: {
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
   try {
-    const response = await fetch(
-      `${DINGTALK_API_BASE}/v1.0/robot/groupMessages/send`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-acs-dingtalk-access-token": accessToken,
-        },
-        body: JSON.stringify({
-          robotCode: cfg.clientId,
-          openConversationId: to,
-          msgKey: "sampleMarkdown",
-          msgParam: JSON.stringify({ title, text }),
-        }),
-        signal: controller.signal,
-      }
-    );
+    const response = await fetch(`${DINGTALK_API_BASE}/v1.0/robot/groupMessages/send`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-acs-dingtalk-access-token": accessToken,
+      },
+      body: JSON.stringify({
+        robotCode: cfg.clientId,
+        openConversationId: to,
+        msgKey: "sampleMarkdown",
+        msgParam: JSON.stringify({ title, text }),
+      }),
+      signal: controller.signal,
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -239,7 +232,9 @@ async function sendGroupMessage(params: {
     };
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      throw new Error(`DingTalk group message send timed out after ${REQUEST_TIMEOUT}ms`);
+      throw new Error(`DingTalk group message send timed out after ${REQUEST_TIMEOUT}ms`, {
+        cause: err,
+      });
     }
     throw err;
   } finally {

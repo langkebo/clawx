@@ -279,7 +279,10 @@ export const SECTION_META: Record<string, { label: string; description: string }
   canvasHost: { label: "Canvas Host", description: "Canvas rendering and display" },
   talk: { label: "Talk", description: "Voice and speech settings" },
   plugins: { label: "Plugins", description: "Plugin management and extensions" },
-  viking: { label: "Viking Routing", description: "Intelligent routing, cache, and optimization settings" },
+  viking: {
+    label: "Viking Routing",
+    description: "Intelligent routing, cache, and optimization settings",
+  },
 };
 
 function getSectionIcon(key: string) {

@@ -16,27 +16,6 @@
   "bin": {
     "openclaw": "openclaw.mjs"
   },
-  "pkg": {
-    "scripts": [
-      "dist/**/*.js",
-      "dist/**/*.mjs",
-      "node_modules/tsx/dist/*.mjs"
-    ],
-    "assets": [
-      "dist/**/*",
-      "assets/**/*",
-      "docs/**/*",
-      "extensions/**/*",
-      "skills/**/*",
-      "node_modules/@jridgewell/trace-mapping/**/*.mjs",
-      "node_modules/@jridgewell/gen-mapping/**/*.mjs",
-      "node_modules/@jridgewell/sourcemap-codec/**/*.mjs"
-    ],
-    "targets": [
-      "node18-win-x64"
-    ],
-    "outputPath": "build"
-  },
   "directories": {
     "doc": "docs",
     "test": "test"
@@ -253,5 +232,26 @@
       "protobufjs",
       "sharp"
     ]
+  },
+  "pkg": {
+    "scripts": [
+      "dist/**/*.js",
+      "dist/**/*.mjs",
+      "node_modules/tsx/dist/*.mjs"
+    ],
+    "assets": [
+      "dist/**/*",
+      "assets/**/*",
+      "docs/**/*",
+      "extensions/**/*",
+      "skills/**/*",
+      "node_modules/@jridgewell/trace-mapping/**/*.mjs",
+      "node_modules/@jridgewell/gen-mapping/**/*.mjs",
+      "node_modules/@jridgewell/sourcemap-codec/**/*.mjs"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "build"
   }
 }

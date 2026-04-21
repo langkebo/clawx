@@ -3,7 +3,10 @@ import { resolvePluginTools } from "../plugins/tools.js";
 import type { GatewayMessageChannel } from "../utils/message-channel.js";
 import { resolveSessionAgentId } from "./agent-scope.js";
 import type { SandboxFsBridge } from "./sandbox/fs-bridge.js";
-import { createActiveMemoryRecallTool, createActiveMemorySaveTool } from "./tools/active-memory-tool.js";
+import {
+  createActiveMemoryRecallTool,
+  createActiveMemorySaveTool,
+} from "./tools/active-memory-tool.js";
 import { createAgentsListTool } from "./tools/agents-list-tool.js";
 import { createBrowserTool } from "./tools/browser-tool.js";
 import { createCanvasTool } from "./tools/canvas-tool.js";

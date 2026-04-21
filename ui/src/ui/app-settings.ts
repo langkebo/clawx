@@ -414,7 +414,9 @@ export async function loadOverview(host: SettingsHost) {
 }
 
 export async function loadVikingStats(host: OpenClawApp) {
-  if (!host.client) return;
+  if (!host.client) {
+    return;
+  }
   try {
     const stats = await host.client.request<VikingStatsSnapshot>("viking.stats");
     host.vikingStats = stats;

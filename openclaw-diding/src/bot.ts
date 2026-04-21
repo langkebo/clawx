@@ -1,15 +1,15 @@
 /**
  * 钉钉消息处理
- * 
+ *
  * 实现消息解析、策略检查和 Agent 分发
  */
 
-import type { DingtalkRawMessage, DingtalkMessageContext } from "./types.js";
 import type { DingtalkConfig } from "./config.js";
+import { createLogger, type Logger } from "./logger.js";
+import { sendMediaDingtalk } from "./media.js";
 import { getDingtalkRuntime, isDingtalkRuntimeInitialized } from "./runtime.js";
 import { sendMessageDingtalk } from "./send.js";
-import { sendMediaDingtalk } from "./media.js";
-import { createLogger, type Logger } from "./logger.js";
+import type { DingtalkRawMessage, DingtalkMessageContext } from "./types.js";
 
 /**
  * 策略检查结果
@@ -23,20 +23,20 @@ export interface PolicyCheckResult {
 
 /**
  * 解析钉钉原始消息为标准化的消息上下文
- * 
+ *
  * @param raw 钉钉原始消息对象
  * @returns 解析后的消息上下文
- * 
+ *
  * Requirements: 4.1, 4.2, 4.3, 4.4
  */
 export function parseDingtalkMessage(raw: DingtalkRawMessage): DingtalkMessageContext {
   // 根据 conversationType 判断聊天类型
   // "1" = 单聊 (direct), "2" = 群聊 (group)
   const chatType = raw.conversationType === "2" ? "group" : "direct";
-  
+
   // 提取消息内容
   let content = "";
-  
+
   if (raw.msgtype === "text" && raw.text?.content) {
     // 文本消息：提取 text.content
     content = raw.text.content.trim();
@@ -44,18 +44,14 @@ export function parseDingtalkMessage(raw: DingtalkRawMessage): DingtalkMessageCo
     // 音频消息：提取语音识别文本 content.recognition
     content = raw.content.recognition.trim();
   }
-  
+
   // 检查是否 @提及了机器人
   const mentionedBot = resolveMentionedBot(raw);
-  
+
   // 使用 Stream 消息 ID（如果可用），确保去重稳定
   const messageId = raw.streamMessageId ?? `${raw.conversationId}_${Date.now()}`;
-  
-  const senderId =
-    raw.senderStaffId ??
-    raw.senderUserId ??
-    raw.senderUserid ??
-    raw.senderId;
+
+  const senderId = raw.senderStaffId ?? raw.senderUserId ?? raw.senderUserid ?? raw.senderId;
 
   return {
     conversationId: raw.conversationId,
@@ -84,10 +80,10 @@ function resolveMentionedBot(raw: DingtalkRawMessage): boolean {
 
 /**
  * 检查单聊策略
- * 
+ *
  * @param params 检查参数
  * @returns 策略检查结果
- * 
+ *
  * Requirements: 5.1
  */
 export function checkDmPolicy(params: {
@@ -96,16 +92,16 @@ export function checkDmPolicy(params: {
   allowFrom?: string[];
 }): PolicyCheckResult {
   const { dmPolicy, senderId, allowFrom = [] } = params;
-  
+
   switch (dmPolicy) {
     case "open":
       // 开放策略：允许所有单聊消息
       return { allowed: true };
-    
+
     case "pairing":
       // 配对策略：允许所有单聊消息（配对逻辑由上层处理）
       return { allowed: true };
-    
+
     case "allowlist":
       // 白名单策略：仅允许 allowFrom 中的发送者
       if (allowFrom.includes(senderId)) {
@@ -115,7 +111,7 @@ export function checkDmPolicy(params: {
         allowed: false,
         reason: `sender ${senderId} not in DM allowlist`,
       };
-    
+
     default:
       return { allowed: true };
   }
@@ -123,10 +119,10 @@ export function checkDmPolicy(params: {
 
 /**
  * 检查群聊策略
- * 
+ *
  * @param params 检查参数
  * @returns 策略检查结果
- * 
+ *
  * Requirements: 5.2, 5.3, 5.4
  */
 export function checkGroupPolicy(params: {
@@ -137,7 +133,7 @@ export function checkGroupPolicy(params: {
   mentionedBot: boolean;
 }): PolicyCheckResult {
   const { groupPolicy, conversationId, groupAllowFrom = [], requireMention, mentionedBot } = params;
-  
+
   // 首先检查群聊策略
   switch (groupPolicy) {
     case "disabled":
@@ -146,7 +142,7 @@ export function checkGroupPolicy(params: {
         allowed: false,
         reason: "group messages disabled",
       };
-    
+
     case "allowlist":
       // 白名单策略：仅允许 groupAllowFrom 中的群组
       if (!groupAllowFrom.includes(conversationId)) {
@@ -156,15 +152,15 @@ export function checkGroupPolicy(params: {
         };
       }
       break;
-    
+
     case "open":
       // 开放策略：允许所有群聊
       break;
-    
+
     default:
       break;
   }
-  
+
   // 然后检查 @提及要求
   if (requireMention && !mentionedBot) {
     return {
@@ -172,10 +168,9 @@ export function checkGroupPolicy(params: {
       reason: "message did not mention bot",
     };
   }
-  
+
   return { allowed: true };
 }
-
 
 /**
  * 入站消息上下文
@@ -222,12 +217,12 @@ export interface InboundContext {
 
 /**
  * 构建入站消息上下文
- * 
+ *
  * @param ctx 解析后的消息上下文
  * @param sessionKey 会话键
  * @param accountId 账户 ID
  * @returns 入站消息上下文
- * 
+ *
  * Requirements: 6.4
  */
 export function buildInboundContext(
@@ -236,15 +231,11 @@ export function buildInboundContext(
   accountId: string,
 ): InboundContext {
   const isGroup = ctx.chatType === "group";
-  
+
   // 构建 From 和 To 标识
-  const from = isGroup
-    ? `dingtalk:group:${ctx.conversationId}`
-    : `dingtalk:${ctx.senderId}`;
-  const to = isGroup
-    ? `chat:${ctx.conversationId}`
-    : `user:${ctx.senderId}`;
-  
+  const from = isGroup ? `dingtalk:group:${ctx.conversationId}` : `dingtalk:${ctx.senderId}`;
+  const to = isGroup ? `chat:${ctx.conversationId}` : `user:${ctx.senderId}`;
+
   return {
     Body: ctx.content,
     RawBody: ctx.content,
@@ -269,12 +260,12 @@ export function buildInboundContext(
 
 /**
  * 处理钉钉入站消息
- * 
+ *
  * 集成消息解析、策略检查和 Agent 分发
- * 
+ *
  * @param params 处理参数
  * @returns Promise<void>
- * 
+ *
  * Requirements: 6.1, 6.2, 6.3, 6.4
  */
 export async function handleDingtalkMessage(params: {
@@ -284,34 +275,32 @@ export async function handleDingtalkMessage(params: {
   log?: (msg: string) => void;
   error?: (msg: string) => void;
 }): Promise<void> {
-  const {
-    cfg,
-    raw,
-    accountId = "default",
-  } = params;
-  
+  const { cfg, raw, accountId: _accountId = "default" } = params;
+
   // 创建日志器
   const logger: Logger = createLogger("dingtalk", {
     log: params.log,
     error: params.error,
   });
-  
+
   // 解析消息
   const ctx = parseDingtalkMessage(raw);
   const isGroup = ctx.chatType === "group";
-  
+
   logger.debug(`received message from ${ctx.senderId} in ${ctx.conversationId} (${ctx.chatType})`);
-  
+
   // 获取钉钉配置
-  const dingtalkCfg = (cfg as Record<string, unknown>)?.channels as Record<string, unknown> | undefined;
+  const dingtalkCfg = (cfg as Record<string, unknown>)?.channels as
+    | Record<string, unknown>
+    | undefined;
   const channelCfg = dingtalkCfg?.dingtalk as DingtalkConfig | undefined;
-  
+
   // 策略检查
   if (isGroup) {
     const groupPolicy = channelCfg?.groupPolicy ?? "allowlist";
     const groupAllowFrom = channelCfg?.groupAllowFrom ?? [];
     const requireMention = channelCfg?.requireMention ?? true;
-    
+
     const policyResult = checkGroupPolicy({
       groupPolicy,
       conversationId: ctx.conversationId,
@@ -319,7 +308,7 @@ export async function handleDingtalkMessage(params: {
       requireMention,
       mentionedBot: ctx.mentionedBot,
     });
-    
+
     if (!policyResult.allowed) {
       logger.debug(`policy rejected: ${policyResult.reason}`);
       return;
@@ -327,45 +316,48 @@ export async function handleDingtalkMessage(params: {
   } else {
     const dmPolicy = channelCfg?.dmPolicy ?? "pairing";
     const allowFrom = channelCfg?.allowFrom ?? [];
-    
+
     const policyResult = checkDmPolicy({
       dmPolicy,
       senderId: ctx.senderId,
       allowFrom,
     });
-    
+
     if (!policyResult.allowed) {
       logger.debug(`policy rejected: ${policyResult.reason}`);
       return;
     }
   }
-  
+
   // 检查运行时是否已初始化
   if (!isDingtalkRuntimeInitialized()) {
     logger.warn("runtime not initialized, skipping dispatch");
     return;
   }
-  
+
   try {
     // 获取完整的 Moltbot 运行时（包含 core API）
     const core = getDingtalkRuntime();
-    
+
     // 检查必要的 API 是否存在
     if (!core.channel?.routing?.resolveAgentRoute) {
       logger.debug("core.channel.routing.resolveAgentRoute not available, skipping dispatch");
       return;
     }
-    
+
     if (!core.channel?.reply?.dispatchReplyFromConfig) {
       logger.debug("core.channel.reply.dispatchReplyFromConfig not available, skipping dispatch");
       return;
     }
 
-    if (!core.channel?.reply?.createReplyDispatcher && !core.channel?.reply?.createReplyDispatcherWithTyping) {
+    if (
+      !core.channel?.reply?.createReplyDispatcher &&
+      !core.channel?.reply?.createReplyDispatcherWithTyping
+    ) {
       logger.debug("core.channel.reply dispatcher factory not available, skipping dispatch");
       return;
     }
-    
+
     // 解析路由
     const route = core.channel.routing.resolveAgentRoute({
       cfg,
@@ -375,7 +367,7 @@ export async function handleDingtalkMessage(params: {
         id: isGroup ? ctx.conversationId : ctx.senderId,
       },
     });
-    
+
     // 构建入站上下文
     const inboundCtx = buildInboundContext(ctx, route.sessionKey, route.accountId);
 
@@ -391,13 +383,15 @@ export async function handleDingtalkMessage(params: {
     }
 
     const textApi = core.channel?.text;
-    
+
     const textChunkLimit =
       textApi?.resolveTextChunkLimit?.({
         cfg,
         channel: "dingtalk",
         defaultLimit: dingtalkCfg.textChunkLimit ?? 4000,
-      }) ?? (dingtalkCfg.textChunkLimit ?? 4000);
+      }) ??
+      dingtalkCfg.textChunkLimit ??
+      4000;
     const chunkMode = textApi?.resolveChunkMode?.(cfg, "dingtalk");
     // 钉钉不支持 Markdown 表格和代码块，强制使用 bullets 模式转换为列表
     const tableMode = "bullets";
@@ -420,13 +414,15 @@ export async function handleDingtalkMessage(params: {
       }
 
       const rawText = payload.text ?? "";
-      if (!rawText.trim()) return;
-      
+      if (!rawText.trim()) {
+        return;
+      }
+
       // 转换表格：使用 Moltbot 核心的转换，不可用时直接用原始文本
       const converted = textApi?.convertMarkdownTables
         ? textApi.convertMarkdownTables(rawText, tableMode)
         : rawText;
-      
+
       const chunks =
         textApi?.chunkTextWithMode && typeof textChunkLimit === "number" && textChunkLimit > 0
           ? textApi.chunkTextWithMode(converted, textChunkLimit, chunkMode)

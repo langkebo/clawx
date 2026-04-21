@@ -1,5 +1,5 @@
-import fs from "node:fs/promises";
 import fsSync from "node:fs";
+import fs from "node:fs/promises";
 import path from "node:path";
 import { resolveStateDir } from "../config/paths.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
@@ -88,7 +88,12 @@ export async function getTask(taskId: string): Promise<Task | null> {
 
 export async function updateTask(
   taskId: string,
-  updates: Partial<Pick<Task, "title" | "description" | "status" | "priority" | "tags" | "error" | "progress" | "metadata">>,
+  updates: Partial<
+    Pick<
+      Task,
+      "title" | "description" | "status" | "priority" | "tags" | "error" | "progress" | "metadata"
+    >
+  >,
 ): Promise<Task | null> {
   const task = await getTask(taskId);
   if (!task) {
@@ -101,7 +106,9 @@ export async function updateTask(
     updatedAt: now,
     startedAt: updates.status === "running" && !task.startedAt ? now : task.startedAt,
     completedAt:
-      updates.status === "completed" || updates.status === "failed" || updates.status === "cancelled"
+      updates.status === "completed" ||
+      updates.status === "failed" ||
+      updates.status === "cancelled"
         ? now
         : task.completedAt,
   };
@@ -132,14 +139,24 @@ export async function listTasks(options?: {
   const tasks: Task[] = [];
 
   for (const file of files) {
-    if (!file.endsWith(".json")) continue;
+    if (!file.endsWith(".json")) {
+      continue;
+    }
     try {
       const content = await fs.readFile(path.join(getTasksDir(), file), "utf-8");
       const task = JSON.parse(content) as Task;
-      if (options?.status && task.status !== options.status) continue;
-      if (options?.priority && task.priority !== options.priority) continue;
-      if (options?.tag && !(task.tags ?? []).includes(options.tag)) continue;
-      if (options?.parentTaskId && task.parentTaskId !== options.parentTaskId) continue;
+      if (options?.status && task.status !== options.status) {
+        continue;
+      }
+      if (options?.priority && task.priority !== options.priority) {
+        continue;
+      }
+      if (options?.tag && !(task.tags ?? []).includes(options.tag)) {
+        continue;
+      }
+      if (options?.parentTaskId && task.parentTaskId !== options.parentTaskId) {
+        continue;
+      }
       tasks.push(task);
     } catch {}
   }
@@ -172,7 +189,9 @@ export async function getTaskStats(): Promise<{
   return { total: tasks.length, byStatus, byPriority };
 }
 
-export async function cleanupCompletedTasks(maxAgeMs: number = 7 * 24 * 60 * 60 * 1000): Promise<number> {
+export async function cleanupCompletedTasks(
+  maxAgeMs: number = 7 * 24 * 60 * 60 * 1000,
+): Promise<number> {
   const tasks = await listTasks({ status: "completed" });
   const cutoff = Date.now() - maxAgeMs;
   let deleted = 0;

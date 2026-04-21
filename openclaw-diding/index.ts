@@ -15,7 +15,7 @@ import { setDingtalkRuntime } from "./src/runtime.js";
 
 /**
  * Moltbot 插件 API 接口
- * 
+ *
  * 包含：
  * - registerChannel: 注册渠道插件
  * - runtime: 完整的 Moltbot 运行时（包含 core API）
@@ -86,7 +86,7 @@ const plugin = {
     if (api.runtime) {
       setDingtalkRuntime(api.runtime as Record<string, unknown>);
     }
-    
+
     // 注册渠道插件
     api.registerChannel({ plugin: dingtalkPlugin });
   },

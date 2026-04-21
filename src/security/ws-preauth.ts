@@ -43,7 +43,7 @@ export function createPreauthState(): PreauthState {
 
 export function installPreauthGuards(
   ws: WebSocket,
-  config: PreauthGuardsConfig = {}
+  config: PreauthGuardsConfig = {},
 ): PreauthState {
   const state = createPreauthState();
   const maxFrameSize = config.maxFrameSize ?? PREAUTH_MAX_FRAME_SIZE;
@@ -59,13 +59,16 @@ export function installPreauthGuards(
     }
   }, handshakeTimeoutMs);
 
-  ws.on("message", (data, isBinary) => {
+  ws.on("message", (data, _isBinary) => {
     if (state.isAuthenticated) {
       return;
     }
 
     state.messageCount++;
-    const dataLength = typeof data === "object" && data !== null && "length" in data ? (data as { length: number }).length : 0;
+    const dataLength =
+      typeof data === "object" && data !== null && "length" in data
+        ? (data as { length: number }).length
+        : 0;
     state.totalBytesReceived += dataLength;
     const now = Date.now();
 
@@ -134,9 +137,11 @@ export function getPreauthStats(state: PreauthState): {
 
 export function validatePreauthFrame(
   data: Buffer | ArrayBuffer | Buffer[],
-  maxSize: number = PREAUTH_MAX_FRAME_SIZE
+  maxSize: number = PREAUTH_MAX_FRAME_SIZE,
 ): { valid: boolean; size: number; reason?: string } {
-  const size = Array.isArray(data) ? data.reduce((sum, buf) => sum + buf.length, 0) : data.byteLength;
+  const size = Array.isArray(data)
+    ? data.reduce((sum, buf) => sum + buf.length, 0)
+    : data.byteLength;
 
   if (size > maxSize) {
     return { valid: false, size, reason: `Frame size ${size} exceeds limit ${maxSize}` };

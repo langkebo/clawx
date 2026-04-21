@@ -418,4 +418,19 @@ export const FIELD_HELP: Record<string, string> = {
     'Direct message access control ("pairing" recommended). "open" requires channels.slack.allowFrom=["*"] (legacy: channels.slack.dm.allowFrom).',
   "channels.slack.dmPolicy":
     'Direct message access control ("pairing" recommended). "open" requires channels.slack.allowFrom=["*"].',
+  "viking.enabled": "Enable or disable Viking intelligent routing (default: true).",
+  "viking.cacheMaxSize": "Maximum number of entries in the routing cache (default: 1000).",
+  "viking.cacheTtlMs": "Time-to-live for cache entries in milliseconds (default: 300000 = 5 min).",
+  "viking.ruleEngine":
+    "Enable rule-based routing from .viking/rules YAML files (P4, default: true).",
+  "viking.dynamicReroute":
+    "Enable dynamic rerouting when context changes mid-conversation (P0, default: true).",
+  "viking.postCompactReroute": "Re-evaluate route after context compaction (P1, default: true).",
+  "viking.modelSwitching":
+    "Allow switching to a cheaper model for simple prompts (P2, default: true).",
+  "viking.parallelRouting": "Evaluate multiple routing strategies in parallel (P3, default: true).",
+  "viking.feedbackLoop":
+    "Learn from routing outcomes to improve future decisions (P5, default: true).",
+  "viking.routingModel":
+    "Model ID used for Viking routing decisions (e.g. gpt-4o-mini, claude-3-haiku). Leave empty to use the default model.",
 };

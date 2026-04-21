@@ -13,9 +13,7 @@ const PdfToolSchema = Type.Object({
     Type.String({ description: "Local file path to the PDF (relative to workspace)" }),
   ),
   url: Type.Optional(Type.String({ description: "URL to fetch the PDF from" })),
-  pages: Type.Optional(
-    Type.Number({ description: "Max pages to extract (default: 20)" }),
-  ),
+  pages: Type.Optional(Type.Number({ description: "Max pages to extract (default: 20)" })),
   includeImages: Type.Optional(
     Type.Boolean({ description: "Whether to include extracted images (default: false)" }),
   ),

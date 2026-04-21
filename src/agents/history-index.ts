@@ -216,7 +216,9 @@ function parseTsidFromTimelineLine(line: string): string | null {
 
 /** 从时间戳 ID 中提取日期（YYYY-MM-DD 格式） */
 function dateFromTsid(tsid: string): string | null {
-  if (tsid.length < 8) return null;
+  if (tsid.length < 8) {
+    return null;
+  }
   const year = tsid.slice(0, 4);
   const month = tsid.slice(4, 6);
   const day = tsid.slice(6, 8);
@@ -233,7 +235,9 @@ function buildDateTsidMap(timeline: string): Record<string, string[]> {
     if (tsid) {
       const date = dateFromTsid(tsid);
       if (date) {
-        if (!map[date]) map[date] = [];
+        if (!map[date]) {
+          map[date] = [];
+        }
         if (!map[date].includes(tsid)) {
           map[date].push(tsid);
         }
@@ -271,18 +275,19 @@ export function extractTsids(l1Text: string): string[] {
 /**
  * 从 L0 的 dateTsidMap 中根据日期提取时间戳 ID 列表
  */
-export function extractTsidsFromL0(
-  l0Result: L0TimelineResult,
-  dates?: string[],
-): string[] {
-  if (!dates || dates.length === 0) return [];
+export function extractTsidsFromL0(l0Result: L0TimelineResult, dates?: string[]): string[] {
+  if (!dates || dates.length === 0) {
+    return [];
+  }
 
   const ids: string[] = [];
   for (const date of dates) {
     const tsids = l0Result.dateTsidMap[date];
     if (tsids) {
       for (const tsid of tsids) {
-        if (!ids.includes(tsid)) ids.push(tsid);
+        if (!ids.includes(tsid)) {
+          ids.push(tsid);
+        }
       }
     }
   }
@@ -328,10 +333,14 @@ function readSessionMessages(sessionDir: string, sessionId: string): string {
     for (const line of lines) {
       try {
         const entry: JournalEntry = JSON.parse(line);
-        if (entry.type !== "message" || !entry.message) continue;
+        if (entry.type !== "message" || !entry.message) {
+          continue;
+        }
 
         const role = entry.message.role;
-        if (role !== "user" && role !== "assistant") continue;
+        if (role !== "user" && role !== "assistant") {
+          continue;
+        }
 
         let text = "";
         if (typeof entry.message.content === "string") {
@@ -387,7 +396,9 @@ export async function loadL2Session(params: {
   let totalChars = 0;
 
   for (const sid of targetIds) {
-    if (totalChars >= maxTotal) break;
+    if (totalChars >= maxTotal) {
+      break;
+    }
 
     const jsonlPath = path.join(sessionsDir, `${sid}.jsonl`);
     if (!fs.existsSync(jsonlPath)) {
@@ -404,10 +415,14 @@ export async function loadL2Session(params: {
       for (const line of lines) {
         try {
           const entry: JournalEntry = JSON.parse(line);
-          if (entry.type !== "message" || !entry.message) continue;
+          if (entry.type !== "message" || !entry.message) {
+            continue;
+          }
 
           const role = entry.message.role;
-          if (role !== "user" && role !== "assistant") continue;
+          if (role !== "user" && role !== "assistant") {
+            continue;
+          }
 
           let text = "";
           if (typeof entry.message.content === "string") {
@@ -432,9 +447,10 @@ export async function loadL2Session(params: {
 
       if (sessionText.length > 0) {
         const remaining = maxTotal - totalChars;
-        const truncated = sessionText.length > remaining
-          ? sessionText.slice(0, remaining) + "\n...(truncated)"
-          : sessionText;
+        const truncated =
+          sessionText.length > remaining
+            ? sessionText.slice(0, remaining) + "\n...(truncated)"
+            : sessionText;
 
         loadedParts.push(`### Session: ${sid}\n\n${truncated}`);
         loadedIds.push(sid);
@@ -504,7 +520,9 @@ function resolveApiKeyFromEnv(hint?: string, providerName?: string): string {
   // 1. 如果 hint 本身就是环境变量名，直接去 process.env 取
   if (hint && looksLikeEnvVarName(hint)) {
     const val = process.env[hint]?.trim();
-    if (val && !looksLikeEnvVarName(val)) return val;
+    if (val && !looksLikeEnvVarName(val)) {
+      return val;
+    }
   }
 
   // 2. 根据 provider 名称查找对应的环境变量
@@ -512,14 +530,18 @@ function resolveApiKeyFromEnv(hint?: string, providerName?: string): string {
     const envVar = PROVIDER_ENV_MAP[providerName.toLowerCase()];
     if (envVar) {
       const val = process.env[envVar]?.trim();
-      if (val && !looksLikeEnvVarName(val)) return val;
+      if (val && !looksLikeEnvVarName(val)) {
+        return val;
+      }
     }
   }
 
   // 3. 遍历所有已知的 API key 环境变量
   for (const envVar of Object.values(PROVIDER_ENV_MAP)) {
     const val = process.env[envVar]?.trim();
-    if (val && !looksLikeEnvVarName(val)) return val;
+    if (val && !looksLikeEnvVarName(val)) {
+      return val;
+    }
   }
 
   return "";
@@ -663,8 +685,14 @@ async function callSummaryLLM(params: {
         if (!response.ok) {
           const errText = await response.text().catch(() => "");
           // 参数不兼容的错误，尝试下一个组合
-          if (errText.includes("temperature") || errText.includes("max_tokens") || errText.includes("max_completion_tokens")) {
-            log.info(`[history] summary LLM: temp=${temp} ${tokenParam} not supported, trying next`);
+          if (
+            errText.includes("temperature") ||
+            errText.includes("max_tokens") ||
+            errText.includes("max_completion_tokens")
+          ) {
+            log.info(
+              `[history] summary LLM: temp=${temp} ${tokenParam} not supported, trying next`,
+            );
             continue;
           }
           log.info(`[history] summary LLM error ${response.status}: ${errText.slice(0, 200)}`);
@@ -706,7 +734,9 @@ export async function appendTimelineEntry(params: {
 
     const summaryConfig = await resolveSummaryConfig({
       model: params.model as { id?: string; name?: string; baseUrl?: string | (() => string) },
-      modelRegistry: params.modelRegistry as { getApiKey?: (model: unknown) => Promise<string | null | undefined> },
+      modelRegistry: params.modelRegistry as {
+        getApiKey?: (model: unknown) => Promise<string | null | undefined>;
+      },
       provider: params.provider,
     });
     const tsid = generateTsid();
@@ -837,11 +867,16 @@ function parseSummaryResult(raw: string): { l0: string; l1: string } {
   const l0Match = raw.match(/\[L0\]\s*\n([\s\S]*?)(?=\[L1\]|$)/);
   if (l0Match) {
     const firstLine = l0Match[1].trim().split("\n")[0]?.trim();
-    if (firstLine) result.l0 = firstLine;
+    if (firstLine) {
+      result.l0 = firstLine;
+    }
   }
 
   if (!result.l0) {
-    const firstLine = raw.split("\n").find((l) => l.trim().length > 0 && !l.includes("[L0]") && !l.includes("[L1]"))?.trim();
+    const firstLine = raw
+      .split("\n")
+      .find((l) => l.trim().length > 0 && !l.includes("[L0]") && !l.includes("[L1]"))
+      ?.trim();
     result.l0 = firstLine ?? "(摘要生成失败)";
   }
 
@@ -860,9 +895,7 @@ function parseSummaryResult(raw: string): { l0: string; l1: string } {
 // 读取 L0（始终加载）
 // ========================
 
-export async function loadL0Timeline(params: {
-  agentDir: string;
-}): Promise<L0TimelineResult> {
+export async function loadL0Timeline(params: { agentDir: string }): Promise<L0TimelineResult> {
   const timelinePath = getTimelinePath(params.agentDir);
   const timeline = safeReadFile(timelinePath).trim();
 
@@ -882,7 +915,9 @@ export async function loadL0Timeline(params: {
 
   const prompt = `<conversation_timeline>\n以下是历史对话的时间线索引：\n${timeline}\n</conversation_timeline>`;
 
-  log.info(`[history] L0 loaded: ${timeline.length} chars, dates: ${Object.keys(dateTsidMap).length}`);
+  log.info(
+    `[history] L0 loaded: ${timeline.length} chars, dates: ${Object.keys(dateTsidMap).length}`,
+  );
 
   return {
     available: true,
@@ -945,7 +980,9 @@ export async function loadL1Decisions(params: {
       const tsidMatch = trimmed.match(/\[(\d{12})\]/);
       if (tsidMatch && tsidSet.has(tsidMatch[1])) {
         if (currentDateHeader && !filteredLines.includes(currentDateHeader)) {
-          if (filteredLines.length > 0) filteredLines.push("");
+          if (filteredLines.length > 0) {
+            filteredLines.push("");
+          }
           filteredLines.push(currentDateHeader);
           filteredLines.push("");
         }
@@ -960,7 +997,9 @@ export async function loadL1Decisions(params: {
 
     const filteredContent = filteredLines.join("\n");
     const prompt = `<key_decisions>\n以下是相关时间点的关键决策和技术细节：\n${filteredContent}\n</key_decisions>`;
-    log.info(`[history] L1 loaded (tsids: ${params.tsids.join(", ")}): ${filteredContent.length} chars`);
+    log.info(
+      `[history] L1 loaded (tsids: ${params.tsids.join(", ")}): ${filteredContent.length} chars`,
+    );
     return { available: true, prompt };
   }
 
@@ -983,7 +1022,9 @@ export async function loadL1Decisions(params: {
 
     const filteredContent = matched.join("\n\n");
     const prompt = `<key_decisions>\n以下是 ${params.dates.join(", ")} 的关键决策和技术细节：\n${filteredContent}\n</key_decisions>`;
-    log.info(`[history] L1 loaded (dates: ${params.dates.join(", ")}): ${filteredContent.length} chars`);
+    log.info(
+      `[history] L1 loaded (dates: ${params.dates.join(", ")}): ${filteredContent.length} chars`,
+    );
     return { available: true, prompt };
   }
 
@@ -1032,7 +1073,7 @@ function parseDecisionsByDate(content: string): Map<string, string> {
 // 兼容函数
 // ========================
 
-export async function maybeTriggerL1Summary(params: {
+export async function maybeTriggerL1Summary(_params: {
   agentDir: string;
   config?: unknown;
   model?: unknown;

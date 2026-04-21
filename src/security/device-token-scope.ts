@@ -1,6 +1,6 @@
 /**
  * Device Token Scope Validation
- * 
+ *
  * Security hardening for device pairing token scope validation.
  * Addresses GHSA-2pwv-x786-56f8: Device token scope overflow.
  */
@@ -22,13 +22,22 @@ export interface DeviceToken {
 }
 
 const SCOPE_HIERARCHY: Record<string, string[]> = {
-  "read": [],
-  "write": ["read"],
-  "exec": ["read", "write"],
-  "admin": ["read", "write", "exec"],
+  read: [],
+  write: ["read"],
+  exec: ["read", "write"],
+  admin: ["read", "write", "exec"],
 };
 
-const VALID_SCOPES = new Set(["read", "write", "exec", "admin", "messages", "tools", "files", "sessions"]);
+const VALID_SCOPES = new Set([
+  "read",
+  "write",
+  "exec",
+  "admin",
+  "messages",
+  "tools",
+  "files",
+  "sessions",
+]);
 
 const MAX_SCOPE_COUNT = 20;
 const DEFAULT_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -36,14 +45,17 @@ const MAX_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export function validateDeviceTokenScope(
   token: DeviceToken,
-  requestedScopes: string[]
+  requestedScopes: string[],
 ): { valid: boolean; reason?: string } {
   if (!token.scopes || token.scopes.length === 0) {
     return { valid: false, reason: "Token has no approved scopes" };
   }
 
   if (requestedScopes.length > MAX_SCOPE_COUNT) {
-    return { valid: false, reason: `Too many scopes requested: ${requestedScopes.length} > ${MAX_SCOPE_COUNT}` };
+    return {
+      valid: false,
+      reason: `Too many scopes requested: ${requestedScopes.length} > ${MAX_SCOPE_COUNT}`,
+    };
   }
 
   const approvedSet = new Set(expandScopes(token.scopes));
@@ -56,7 +68,10 @@ export function validateDeviceTokenScope(
     const expandedRequested = expandScopes([scope]);
     for (const expandedScope of expandedRequested) {
       if (!approvedSet.has(expandedScope)) {
-        return { valid: false, reason: `Scope '${scope}' (expanded to '${expandedScope}') not approved` };
+        return {
+          valid: false,
+          reason: `Scope '${scope}' (expanded to '${expandedScope}') not approved`,
+        };
       }
     }
   }
@@ -92,13 +107,19 @@ export function validateTokenExpiration(token: DeviceToken): { valid: boolean; r
 
   const tokenAge = now - token.signedAtMs;
   if (tokenAge > MAX_TOKEN_TTL_MS) {
-    return { valid: false, reason: `Token age exceeds maximum TTL: ${tokenAge}ms > ${MAX_TOKEN_TTL_MS}ms` };
+    return {
+      valid: false,
+      reason: `Token age exceeds maximum TTL: ${tokenAge}ms > ${MAX_TOKEN_TTL_MS}ms`,
+    };
   }
 
   return { valid: true };
 }
 
-export function validateDeviceToken(token: DeviceToken, requestedScopes: string[]): { valid: boolean; reasons: string[] } {
+export function validateDeviceToken(
+  token: DeviceToken,
+  requestedScopes: string[],
+): { valid: boolean; reasons: string[] } {
   const reasons: string[] = [];
 
   const scopeResult = validateDeviceTokenScope(token, requestedScopes);
@@ -159,5 +180,5 @@ export function isScopeSubset(requested: string[], approved: string[]): boolean 
 }
 
 export function getEffectiveScopes(scopes: string[]): string[] {
-  return [...new Set(expandScopes(scopes))].sort();
+  return [...new Set(expandScopes(scopes))].toSorted();
 }

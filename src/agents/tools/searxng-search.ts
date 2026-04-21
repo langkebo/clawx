@@ -36,7 +36,7 @@ const DEFAULT_LANGUAGE = "en";
 
 export async function searchWithSearXNG(
   query: string,
-  config: SearXNGConfig
+  config: SearXNGConfig,
 ): Promise<SearXNGResult[]> {
   const {
     host,
@@ -76,7 +76,7 @@ export async function searchWithSearXNG(
     return data.results ?? [];
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      throw new Error(`SearXNG search timeout after ${timeout}ms`);
+      throw new Error(`SearXNG search timeout after ${timeout}ms`, { cause: err });
     }
     throw err;
   } finally {
@@ -84,10 +84,7 @@ export async function searchWithSearXNG(
   }
 }
 
-export function buildSearXNGContext(
-  results: SearXNGResult[],
-  maxResults: number = 5
-): string {
+export function buildSearXNGContext(results: SearXNGResult[], maxResults: number = 5): string {
   if (results.length === 0) {
     return "No search results found.";
   }

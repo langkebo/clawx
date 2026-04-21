@@ -7,14 +7,15 @@
 
 ## 一、MERGE_PLAN 执行状态检查
 
-| 步骤 | 状态 | 说明 |
-|------|------|------|
-| Step 1: 环境准备 | ✅ 部分完成 | `.viking-backup/` 已创建；升级分支未创建 |
-| Step 2: Fetch 上游 | ❌ 未完成 | upstream remote 未添加，网络受限 |
-| Step 3: Merge | ❌ 未完成 | 依赖 Step 2 |
-| Step 4-10 | ❌ 未完成 | 依赖 Merge |
+| 步骤               | 状态        | 说明                                     |
+| ------------------ | ----------- | ---------------------------------------- |
+| Step 1: 环境准备   | ✅ 部分完成 | `.viking-backup/` 已创建；升级分支未创建 |
+| Step 2: Fetch 上游 | ❌ 未完成   | upstream remote 未添加，网络受限         |
+| Step 3: Merge      | ❌ 未完成   | 依赖 Step 2                              |
+| Step 4-10          | ❌ 未完成   | 依赖 Merge                               |
 
 **当前 git 状态**：已有本地修改（未提交），包括：
+
 - 已删除冗余备份文件（`.bak`, `兼容opy.ts`）✅
 - 已修改核心文件（system-prompt, viking-router, tool-policy 等）
 - 已新增工具文件（active-memory, image-generate, pdf, sessions-yield, tasks）
@@ -31,6 +32,7 @@
 ### 精华 1：Tool Search — 动态工具发现与按需加载
 
 **Claude Code 做法**：
+
 - 不把所有工具定义塞进 context window
 - Agent 只看到一个工具摘要目录
 - 需要时动态搜索，加载 3-5 个最相关工具
@@ -39,6 +41,7 @@
 - `auto:N` 阈值：工具定义占比超过 N% 时自动激活
 
 **Viking 当前做法**：
+
 - 用路由模型全量做"能力包"选择题
 - 一次性挑选所有需要的工具/文件/skills
 - 缓存 5 分钟 TTL
@@ -50,12 +53,14 @@
 ### 精华 2：Agentic Loop 三阶段模型
 
 **Claude Code 做法**：
+
 - **Gather Context** → **Take Action** → **Verify Results**
 - 三阶段自然交织，不是线性流水线
 - 每个 turn 都可以重新评估需要什么上下文
 - Verification 是内置核心，不只是"运行测试"
 
 **Viking 当前做法**：
+
 - 路由发生在 turn 1 之前，后续无法调整
 - 没有 verify 阶段的反馈回路
 
@@ -66,6 +71,7 @@
 ### 精华 3：Context Window 精细管理
 
 **Claude Code 做法**：
+
 - 自动 compact：旧工具输出优先清理 → 对话摘要 → 保留关键代码片段
 - CLAUDE.md 控制持久指令 < 200 行
 - `@path` 导入机制：按需加载而非全量注入
@@ -73,6 +79,7 @@
 - thrashing 检测：compact 后立即填满则停止而非循环
 
 **Viking 当前做法**：
+
 - L0/L1/L2 分层是优秀的 context 策略
 - 但缺乏 compact 后的动态工具重新分配
 
@@ -83,6 +90,7 @@
 ### 精华 4：Subagent 并行 + 上下文隔离
 
 **Claude Code 做法**：
+
 - 每个 subagent 独立 context window，并行执行
 - 父 agent 只接收 subagent 最终消息
 - subagent 可限定工具子集（如只读）
@@ -90,6 +98,7 @@
 - subagent 不能再嵌套 subagent
 
 **Viking 当前做法**：
+
 - viking-task-registry 提供了后台任务系统
 - 但缺乏并行路由能力
 
@@ -100,12 +109,14 @@
 ### 精华 5：多模型分层 — 精准投放算力
 
 **Claude Code 做法**：
+
 - 路由/决策：轻量模型 (Haiku/Sonnet)
 - 复杂编码/推理：重量模型 (Opus)
 - subagent 可独立指定 model
 - fast mode：Opus 4.6 的快速变体
 
 **Viking 当前做法**：
+
 - 路由模型可配置（viking-router.ts 中支持多种国产模型）
 - vLLM 本地路由适配（viking-routervllm.ts）
 - 但路由模型选择是全局配置，不随任务类型动态切换
@@ -117,12 +128,14 @@
 ### 精华 6：持久记忆体系
 
 **Claude Code 做法**：
+
 - CLAUDE.md：用户写的持久指令（项目级/用户级/组织级）
 - Auto Memory：Claude 自己积累的学习笔记（前 200 行/25KB 自动加载）
 - `.claude/rules/`：按文件类型/路径范围的精确规则
 - `@path` 导入：不复制内容，按需引用
 
 **Viking 当前做法**：
+
 - active_memory_recall / active_memory_save 工具
 - L0 时间线作为跨会话记忆
 - 但缺乏"组织级"和"路径级"的规则粒度
@@ -132,6 +145,7 @@
 ### 精华 7：Hook 系统 — 行为拦截与增强
 
 **Claude Code 做法**：
+
 - Pre-tool / Post-tool hooks：在工具执行前后拦截
 - Prompt hooks：修改发给模型的 prompt
 - HTTP hooks：远程 webhook 集成
@@ -139,6 +153,7 @@
 - 异步 hooks 支持
 
 **Viking 当前做法**：
+
 - Viking 路由本身就是一种 pre-tool hook
 - 但缺乏 post-tool 和 prompt hook
 
@@ -146,16 +161,16 @@
 
 ## 三、Viking × Claude Code 对比矩阵
 
-| 维度 | Claude Code | Viking 当前 | Viking 优势 | Viking 劣势 |
-|------|-------------|-------------|-------------|-------------|
-| 工具选择 | Tool Search 按需发现 | 能力包预选 | 更快（无搜索开销） | 预判不准则缺工具 |
-| Context 管理 | auto compact + thrashing 检测 | L0/L1/L2 分层 | 更精细的历史分层 | 缺 compact 后重路由 |
-| 多模型 | 3 个模型分层 | 18+ 国产 Provider | 生态更丰富 | 缺动态模型切换 |
-| 记忆 | CLAUDE.md + Auto Memory | L0 时间线 + active_memory | 时间线索引更优雅 | 缺路径级规则 |
-| 并行 | Subagent 并行隔离 | Task Registry 单线程 | — | 无法并行路由 |
-| Hook | 7 种 hook 事件 | 仅路由 hook | — | 行为可控性弱 |
-| 验证 | 内置 verify 循环 | 无内置验证 | — | 容错能力弱 |
-| 路由缓存 | 无显式缓存 | LRU + 5min TTL | 减少重复路由 | 缓存失效策略简单 |
+| 维度         | Claude Code                   | Viking 当前               | Viking 优势        | Viking 劣势         |
+| ------------ | ----------------------------- | ------------------------- | ------------------ | ------------------- |
+| 工具选择     | Tool Search 按需发现          | 能力包预选                | 更快（无搜索开销） | 预判不准则缺工具    |
+| Context 管理 | auto compact + thrashing 检测 | L0/L1/L2 分层             | 更精细的历史分层   | 缺 compact 后重路由 |
+| 多模型       | 3 个模型分层                  | 18+ 国产 Provider         | 生态更丰富         | 缺动态模型切换      |
+| 记忆         | CLAUDE.md + Auto Memory       | L0 时间线 + active_memory | 时间线索引更优雅   | 缺路径级规则        |
+| 并行         | Subagent 并行隔离             | Task Registry 单线程      | —                  | 无法并行路由        |
+| Hook         | 7 种 hook 事件                | 仅路由 hook               | —                  | 行为可控性弱        |
+| 验证         | 内置 verify 循环              | 无内置验证                | —                  | 容错能力弱          |
+| 路由缓存     | 无显式缓存                    | LRU + 5min TTL            | 减少重复路由       | 缓存失效策略简单    |
 
 ---
 
@@ -170,9 +185,9 @@
 ```typescript
 // viking-router.ts 新增：动态工具补充
 export async function vikingReRoute(params: {
-  currentTools: Set<string>;      // 当前已加载的工具
-  newRequest: string;             // 用户新请求/工具调用失败信息
-  allTools: AgentToolLike[];      // 全量工具列表
+  currentTools: Set<string>; // 当前已加载的工具
+  newRequest: string; // 用户新请求/工具调用失败信息
+  allTools: AgentToolLike[]; // 全量工具列表
   model: Model<Api>;
   modelRegistry: ModelRegistry;
   provider: string;
@@ -181,15 +196,15 @@ export async function vikingReRoute(params: {
   // 1. 如果新请求不需要额外工具 → 返回空集
   // 2. 如果需要新工具 → 返回 addTools
   // 3. 如果之前的工具明显不需要 → 返回 removeTools
-  
+
   const system = `你是一个工具补充路由器。
 当前已加载工具: [${[...params.currentTools].join(", ")}]
-全量工具: [${params.allTools.map(t => t.name).join(", ")}]
+全量工具: [${params.allTools.map((t) => t.name).join(", ")}]
 用户新请求: "${params.newRequest}"
 
 判断是否需要补充新工具。回复 JSON:
 {"addTools":["tool1","tool2"],"removeTools":["tool3"]}`;
-  
+
   const result = await callRoutingModel({
     model: params.model,
     modelRegistry: params.modelRegistry,
@@ -197,7 +212,7 @@ export async function vikingReRoute(params: {
     system,
     user: params.newRequest,
   });
-  
+
   return result ?? { addTools: new Set(), removeTools: new Set() };
 }
 ```
@@ -218,10 +233,10 @@ export async function vikingReRoute(params: {
 // 在 attempt.ts 的 compact 回调中添加
 onCompact: async (compactedContext: CompactedContext) => {
   if (!VIKING_ENABLED) return;
-  
+
   // 1. 从 compactedContext 中提取当前对话意图
   const currentIntent = compactedContext.summary;
-  
+
   // 2. 用 vikingReRoute 重新评估需要的工具
   const reRoute = await vikingReRoute({
     currentTools: activeTools,
@@ -231,7 +246,7 @@ onCompact: async (compactedContext: CompactedContext) => {
     modelRegistry,
     provider,
   });
-  
+
   // 3. 动态调整工具集
   for (const t of reRoute.addTools) {
     if (!activeTools.has(t)) activeTools.add(t);
@@ -239,9 +254,11 @@ onCompact: async (compactedContext: CompactedContext) => {
   for (const t of reRoute.removeTools) {
     activeTools.delete(t);
   }
-  
-  log.info(`[viking] post-compact re-route: +[${[...reRoute.addTools]}] -[${[...reRoute.removeTools]}]`);
-}
+
+  log.info(
+    `[viking] post-compact re-route: +[${[...reRoute.addTools]}] -[${[...reRoute.removeTools]}]`,
+  );
+};
 ```
 
 **预期收益**：与 Claude Code 的 compact + tool search 闭环等价，但成本更低（增量路由 vs 全量搜索）。
@@ -256,7 +273,10 @@ onCompact: async (compactedContext: CompactedContext) => {
 
 ```typescript
 // viking-router.ts 修改：按任务复杂度选路由模型
-function selectRoutingModel(prompt: string, timeline?: string): {
+function selectRoutingModel(
+  prompt: string,
+  timeline?: string,
+): {
   model: string;
   provider: string;
   maxTokens: number;
@@ -264,17 +284,17 @@ function selectRoutingModel(prompt: string, timeline?: string): {
   // 快速启发式判断任务复杂度
   const complexIndicators = /重构|架构|迁移|安全|优化|分析|对比|设计|review/i;
   const simpleIndicators = /^(你好|hi|hello|谢谢|好的|是|否|ok|yes|no)[!！。.]*$/i;
-  
+
   if (simpleIndicators.test(prompt.trim())) {
     // 简单问候 → 最便宜的模型
     return { model: "qwen2.5-3b-instruct", provider: "dashscope", maxTokens: 50 };
   }
-  
+
   if (complexIndicators.test(prompt) || (timeline && timeline.length > 2000)) {
     // 复杂任务 → 更强的模型
     return { model: "qwen-max", provider: "dashscope", maxTokens: 300 };
   }
-  
+
   // 默认 → 平衡模型
   return { model: "qwen-plus", provider: "dashscope", maxTokens: 200 };
 }
@@ -304,20 +324,20 @@ export async function vikingParallelRoute(params: {
 }): Promise<Map<string, VikingRouteResult>> {
   // 为每个子任务独立路由
   const results = new Map<string, VikingRouteResult>();
-  
+
   const promises = params.tasks.map(async (task) => {
     const result = await vikingRoute({
       prompt: task.prompt,
       tools: params.tools,
-      fileNames: [],  // 子任务无文件依赖
-      skills: [],     // 子任务无 skills
+      fileNames: [], // 子任务无文件依赖
+      skills: [], // 子任务无 skills
       model: params.model,
       modelRegistry: params.modelRegistry,
       provider: params.provider,
     });
     results.set(task.id, result);
   });
-  
+
   await Promise.all(promises);
   return results;
 }
@@ -374,6 +394,7 @@ if (matchedRule) {
 ```
 
 **预期收益**：
+
 - 常见模式零成本路由（不需要调用路由模型）
 - 项目可自定义路由策略
 - 减少路由模型 90% 的调用次数
@@ -405,12 +426,12 @@ export async function vikingRouteWithFeedback(params: {
 }): Promise<VikingRouteResult | null> {
   if (params.feedback.executionResult === "tool_missing" && params.feedback.missingToolName) {
     // 工具缺失 → 补充该工具及其相关能力包
-    const tool = params.allTools.find(t => t.name === params.feedback.missingToolName);
+    const tool = params.allTools.find((t) => t.name === params.feedback.missingToolName);
     if (!tool) return null;
-    
+
     const packForTool = reverseLookupPack(tool.name);
     log.info(`[viking] feedback: adding pack ${packForTool} for missing tool ${tool.name}`);
-    
+
     return {
       tools: new Set([...params.feedback.routeResult.tools, tool.name]),
       files: params.feedback.routeResult.files,
@@ -422,7 +443,7 @@ export async function vikingRouteWithFeedback(params: {
       needsL2: false,
     };
   }
-  
+
   if (params.feedback.executionResult === "context_overflow") {
     // Context 溢出 → 降级到 L0
     return {
@@ -431,7 +452,7 @@ export async function vikingRouteWithFeedback(params: {
       skillsMode: "names",
     };
   }
-  
+
   return null;
 }
 ```
@@ -442,13 +463,13 @@ export async function vikingRouteWithFeedback(params: {
 
 ## 五、实施路线图
 
-| 阶段 | 时间 | 内容 | 依赖 |
-|------|------|------|------|
-| **阶段 0** | 本周 | 先提交当前修改，完成 MERGE_PLAN 的 Step 1-3 | 无 |
-| **阶段 1** | 1-2 周 | P0 动态再路由 + P2 路由模型动态切换 | MERGE_PLAN 完成 |
-| **阶段 2** | 2-3 周 | P1 Compact 后重路由 + P5 验证反馈回路 | 阶段 1 |
-| **阶段 3** | 3-4 周 | P4 路径级规则引擎 | 阶段 1 |
-| **阶段 4** | 4-6 周 | P3 并行路由能力 + Viking 模块独立化 | 阶段 2-3 |
+| 阶段       | 时间   | 内容                                        | 依赖            |
+| ---------- | ------ | ------------------------------------------- | --------------- |
+| **阶段 0** | 本周   | 先提交当前修改，完成 MERGE_PLAN 的 Step 1-3 | 无              |
+| **阶段 1** | 1-2 周 | P0 动态再路由 + P2 路由模型动态切换         | MERGE_PLAN 完成 |
+| **阶段 2** | 2-3 周 | P1 Compact 后重路由 + P5 验证反馈回路       | 阶段 1          |
+| **阶段 3** | 3-4 周 | P4 路径级规则引擎                           | 阶段 1          |
+| **阶段 4** | 4-6 周 | P3 并行路由能力 + Viking 模块独立化         | 阶段 2-3        |
 
 ---
 
@@ -463,4 +484,4 @@ export async function vikingRouteWithFeedback(params: {
 
 ---
 
-*方案版本: v1.0 | 日期: 2026-04-12 | 基于 Claude Code 官方文档 2026.4 分析*
+_方案版本: v1.0 | 日期: 2026-04-12 | 基于 Claude Code 官方文档 2026.4 分析_

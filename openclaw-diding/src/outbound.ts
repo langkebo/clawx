@@ -12,9 +12,9 @@
  * - chunkerMode: "markdown" (使用 markdown 感知的分块模式)
  */
 
-import { sendMessageDingtalk } from "./send.js";
 import { sendMediaDingtalk } from "./media.js";
 import { getDingtalkRuntime } from "./runtime.js";
+import { sendMessageDingtalk } from "./send.js";
 import type { DingtalkConfig } from "./types.js";
 
 /**
@@ -49,7 +49,6 @@ function parseTarget(to: string): { targetId: string; chatType: "direct" | "grou
   }
   return { targetId: to, chatType: "direct" };
 }
-
 
 /**
  * 钉钉出站适配器

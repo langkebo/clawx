@@ -1,12 +1,12 @@
 /**
  * Property-Based Tests for DingTalk Config Schema
- * 
+ *
  * Feature: dingtalk-integration
  * Property 1: 配置 Schema 验证
  */
 
-import { describe, it, expect } from "vitest";
 import * as fc from "fast-check";
+import { describe, it, expect } from "vitest";
 import { DingtalkConfigSchema, isConfigured, resolveDingtalkCredentials } from "./config.js";
 
 describe("Feature: dingtalk-integration, Property 1: 配置 Schema 验证", () => {
@@ -32,10 +32,10 @@ describe("Feature: dingtalk-integration, Property 1: 配置 Schema 验证", () =
     fc.assert(
       fc.property(validConfigArb, (config) => {
         const result = DingtalkConfigSchema.safeParse(config);
-        
+
         // Schema should parse successfully
         expect(result.success).toBe(true);
-        
+
         if (result.success) {
           // Default values should be applied
           expect(typeof result.data.enabled).toBe("boolean");
@@ -44,7 +44,7 @@ describe("Feature: dingtalk-integration, Property 1: 配置 Schema 验证", () =
           expect(typeof result.data.requireMention).toBe("boolean");
           expect(typeof result.data.historyLimit).toBe("number");
           expect(typeof result.data.textChunkLimit).toBe("number");
-          
+
           // Verify default values when not provided
           if (config.enabled === undefined) {
             expect(result.data.enabled).toBe(true);
@@ -66,7 +66,7 @@ describe("Feature: dingtalk-integration, Property 1: 配置 Schema 验证", () =
           }
         }
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 
@@ -105,7 +105,7 @@ describe("Feature: dingtalk-integration, Property 1: 配置 Schema 验证", () =
         enabled: fc.option(fc.boolean(), { nil: undefined }),
         clientId: fc.string({ minLength: 1 }),
         clientSecret: fc.constant(""),
-      })
+      }),
     );
 
     fc.assert(
@@ -115,7 +115,7 @@ describe("Feature: dingtalk-integration, Property 1: 配置 Schema 验证", () =
           expect(isConfigured(parsed.data)).toBe(false);
         }
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 
@@ -136,17 +136,17 @@ describe("Feature: dingtalk-integration, Property 1: 配置 Schema 验证", () =
       fc.property(configWithCredentialsArb, (config) => {
         const parsed = DingtalkConfigSchema.safeParse(config);
         expect(parsed.success).toBe(true);
-        
+
         if (parsed.success) {
           expect(isConfigured(parsed.data)).toBe(true);
-          
+
           const credentials = resolveDingtalkCredentials(parsed.data);
           expect(credentials).toBeDefined();
           expect(credentials?.clientId).toBe(config.clientId);
           expect(credentials?.clientSecret).toBe(config.clientSecret);
         }
       }),
-      { numRuns: 100 }
+      { numRuns: 100 },
     );
   });
 
@@ -155,7 +155,7 @@ describe("Feature: dingtalk-integration, Property 1: 配置 Schema 验证", () =
    */
   it("should reject invalid policy values", () => {
     const invalidPolicyArb = fc.record({
-      dmPolicy: fc.string().filter(s => !["open", "pairing", "allowlist"].includes(s)),
+      dmPolicy: fc.string().filter((s) => !["open", "pairing", "allowlist"].includes(s)),
     });
 
     fc.assert(
@@ -163,7 +163,7 @@ describe("Feature: dingtalk-integration, Property 1: 配置 Schema 验证", () =
         const result = DingtalkConfigSchema.safeParse(config);
         expect(result.success).toBe(false);
       }),
-      { numRuns: 50 }
+      { numRuns: 50 },
     );
   });
 
@@ -180,7 +180,7 @@ describe("Feature: dingtalk-integration, Property 1: 配置 Schema 验证", () =
         const result = DingtalkConfigSchema.safeParse(config);
         expect(result.success).toBe(false);
       }),
-      { numRuns: 50 }
+      { numRuns: 50 },
     );
   });
 
@@ -197,7 +197,7 @@ describe("Feature: dingtalk-integration, Property 1: 配置 Schema 验证", () =
         const result = DingtalkConfigSchema.safeParse(config);
         expect(result.success).toBe(false);
       }),
-      { numRuns: 50 }
+      { numRuns: 50 },
     );
   });
 });

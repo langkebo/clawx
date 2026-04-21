@@ -19,12 +19,7 @@
         "policy_brief": "2026年燃料油非国营贸易进口允许量申领条件发布",
         "risk_level": "yellow",
         "risk_type": "其他",
-        "affected_segments": [
-          "整车出口",
-          "零部件出口",
-          "售后市场",
-          "投资建厂"
-        ],
+        "affected_segments": ["整车出口", "零部件出口", "售后市场", "投资建厂"],
         "impact_analysis": "虽然政策主要针对燃料油进口，但可能间接影响汽车出口企业的燃油车成本结构。若企业涉及海外燃油供应链，需特别关注申领资质要求。",
         "action_suggestions": [
           {
@@ -49,10 +44,7 @@
         "policy_brief": "2026年自动进口许可货物目录新增化肥加工贸易",
         "risk_level": "yellow",
         "risk_type": "关税壁垒",
-        "affected_segments": [
-          "零部件出口",
-          "售后市场"
-        ],
+        "affected_segments": ["零部件出口", "售后市场"],
         "impact_analysis": "虽然主要针对化肥，但目录调整反映进口国管控趋严，可能影响汽车零部件和售后件的通关效率。相关企业需关注后续类似监管加码。",
         "action_suggestions": [
           {
@@ -77,10 +69,7 @@
         "policy_brief": "2026年甘草制品出口配额招标启动",
         "risk_level": "yellow",
         "risk_type": "其他",
-        "affected_segments": [
-          "零部件出口",
-          "售后市场"
-        ],
+        "affected_segments": ["零部件出口", "售后市场"],
         "impact_analysis": "虽然政策针对的是甘草制品，但可能影响使用甘草提取物作为原料的汽车内饰或配件企业，需关注供应链稳定性。",
         "action_suggestions": [
           {
@@ -105,12 +94,7 @@
         "policy_brief": "商务部强化贸易政策合规评估机制",
         "risk_level": "yellow",
         "risk_type": "其他",
-        "affected_segments": [
-          "整车出口",
-          "零部件出口",
-          "售后市场",
-          "投资建厂"
-        ],
+        "affected_segments": ["整车出口", "零部件出口", "售后市场", "投资建厂"],
         "impact_analysis": "新办法要求地方政府和部门在制定贸易政策时必须进行WTO合规评估，可能影响汽车出口相关补贴政策或产业扶持措施的出台效率。",
         "action_suggestions": [
           {
@@ -135,10 +119,7 @@
         "policy_brief": "对日美韩马进口聚苯硫醚继续征反倾销税",
         "risk_level": "yellow",
         "risk_type": "反倾销",
-        "affected_segments": [
-          "零部件出口",
-          "整车出口"
-        ],
+        "affected_segments": ["零部件出口", "整车出口"],
         "impact_analysis": "聚苯硫醚是汽车轻量化和电气化关键材料，反倾销税维持将导致原材料成本上升。主机厂和零部件供应商需评估供应链风险，特别是新能源车用电子电器部件的成本影响。",
         "action_suggestions": [
           {
@@ -163,10 +144,7 @@
         "policy_brief": "蔺草制品出口配额招标政策发布",
         "risk_level": "yellow",
         "risk_type": "其他",
-        "affected_segments": [
-          "零部件出口",
-          "售后市场"
-        ],
+        "affected_segments": ["零部件出口", "售后市场"],
         "impact_analysis": "虽然政策针对蔺草制品，但类似配额管理可能影响汽车内饰材料等关联产品出口。企业需关注配额分配机制对供应链稳定性的影响。",
         "action_suggestions": [
           {
@@ -191,12 +169,7 @@
         "policy_brief": "商务部再次延长进口牛肉保障措施调查期限",
         "risk_level": "yellow",
         "risk_type": "其他",
-        "affected_segments": [
-          "整车出口",
-          "零部件出口",
-          "售后市场",
-          "投资建厂"
-        ],
+        "affected_segments": ["整车出口", "零部件出口", "售后市场", "投资建厂"],
         "impact_analysis": "虽然该政策直接针对牛肉进口，但反映出商务部对进口商品的审慎态度。汽车企业需警惕类似调查可能扩展到其他领域，包括汽车及零部件。",
         "action_suggestions": [
           {
@@ -221,10 +194,7 @@
         "policy_brief": "商务部明确17类货物出口需配额审批",
         "risk_level": "yellow",
         "risk_type": "关税壁垒",
-        "affected_segments": [
-          "整车出口",
-          "零部件出口"
-        ],
+        "affected_segments": ["整车出口", "零部件出口"],
         "impact_analysis": "虽然汽车及零部件暂未列入配额管理，但政策收紧趋势明显。若企业涉及相关原材料（如钢材）或能源产品出口，可能影响供应链稳定性。",
         "action_suggestions": [
           {
@@ -249,9 +219,7 @@
         "policy_brief": "白银加工贸易出口审批政策",
         "risk_level": "yellow",
         "risk_type": "关税壁垒",
-        "affected_segments": [
-          "零部件出口"
-        ],
+        "affected_segments": ["零部件出口"],
         "impact_analysis": "汽车零部件中含白银制品（如传感器、电路板等）的出口将受审批限制，增加时间和合规成本。主机厂和配件商需特别关注相关产品出口资质。",
         "action_suggestions": [
           {
@@ -276,10 +244,7 @@
         "policy_brief": "汽车相关产品出口需确认是否涉及国营贸易管理",
         "risk_level": "yellow",
         "risk_type": "其他",
-        "affected_segments": [
-          "整车出口",
-          "零部件出口"
-        ],
+        "affected_segments": ["整车出口", "零部件出口"],
         "impact_analysis": "虽然汽车及零部件未直接列入国营贸易管理目录，但企业需特别注意白银、钨制品等特殊原材料的使用，可能影响部分高端汽车零部件出口。",
         "action_suggestions": [
           {
@@ -304,10 +269,7 @@
         "policy_brief": "四部门加强二手车出口管理，严控出口秩序",
         "risk_level": "yellow",
         "risk_type": "其他",
-        "affected_segments": [
-          "整车出口",
-          "售后市场"
-        ],
+        "affected_segments": ["整车出口", "售后市场"],
         "impact_analysis": "主机厂和贸易商需注意新规对车辆资质、许可证管理和售后服务的要求，不合规车辆将无法出口；未建立完善售后服务体系的企业可能面临业务受限。",
         "action_suggestions": [
           {
@@ -332,10 +294,7 @@
         "policy_brief": "2025年燃料油非国营贸易进口允许量政策发布",
         "risk_level": "yellow",
         "risk_type": "其他",
-        "affected_segments": [
-          "整车出口",
-          "零部件出口"
-        ],
+        "affected_segments": ["整车出口", "零部件出口"],
         "impact_analysis": "虽然政策主要针对燃料油进口，但可能间接影响汽车出口企业的燃油车成本核算和新能源车的竞争力。严格的申领条件和分配原则可能限制相关企业获取燃料油的便利性。",
         "action_suggestions": [
           {
@@ -360,12 +319,7 @@
         "policy_brief": "2024国家风险报告发布，提示全球市场新变化",
         "risk_level": "yellow",
         "risk_type": "市场动态",
-        "affected_segments": [
-          "整车出口",
-          "零部件出口",
-          "售后市场",
-          "投资建厂"
-        ],
+        "affected_segments": ["整车出口", "零部件出口", "售后市场", "投资建厂"],
         "impact_analysis": "报告揭示了部分新兴市场需求放缓和地缘政治风险上升，可能影响汽车出口订单稳定性；同时提示汇率波动加剧，对贸易结算带来不确定性。",
         "action_suggestions": [
           {
@@ -390,12 +344,7 @@
         "policy_brief": "政府工作报告再提扩大出口信保覆盖面",
         "risk_level": "green",
         "risk_type": "产业扶持",
-        "affected_segments": [
-          "整车出口",
-          "零部件出口",
-          "售后市场",
-          "投资建厂"
-        ],
+        "affected_segments": ["整车出口", "零部件出口", "售后市场", "投资建厂"],
         "impact_analysis": "政策明确支持汽车及零部件企业开拓海外市场，特别是新能源车和高端装备领域。通过扩大信保覆盖面和创新融资模式，帮助企业解决海外订单风险和融资难题。",
         "action_suggestions": [
           {
@@ -420,12 +369,7 @@
         "policy_brief": "中国信保2024年承保超10214亿美元，多项业务创新高",
         "risk_level": "green",
         "risk_type": "产业扶持",
-        "affected_segments": [
-          "整车出口",
-          "零部件出口",
-          "售后市场",
-          "投资建厂"
-        ],
+        "affected_segments": ["整车出口", "零部件出口", "售后市场", "投资建厂"],
         "impact_analysis": "政策性出口信用保险覆盖面扩大，尤其支持整车工程机械、电子信息等重点产业链出口增长显著，利好汽车全产业链出海。",
         "action_suggestions": [
           {
@@ -450,10 +394,7 @@
         "policy_brief": "中国信保加大承保力度，支持开拓新兴市场",
         "risk_level": "green",
         "risk_type": "市场动态",
-        "affected_segments": [
-          "整车出口",
-          "零部件出口"
-        ],
+        "affected_segments": ["整车出口", "零部件出口"],
         "impact_analysis": "政策性保险机构加大对新兴市场的支持力度，特别是'一带一路'沿线国家，这为主机厂和零部件企业开拓新市场提供了保障。同时限额申请创新高，说明在手订单充足。",
         "action_suggestions": [
           {
@@ -478,11 +419,7 @@
         "policy_brief": "出口信用保险助力跨境电商发展",
         "risk_level": "green",
         "risk_type": "产业扶持",
-        "affected_segments": [
-          "整车出口",
-          "零部件出口",
-          "售后市场"
-        ],
+        "affected_segments": ["整车出口", "零部件出口", "售后市场"],
         "impact_analysis": "政策明确扩大出口信用保险覆盖面，特别针对跨境电商推出专项保险产品，有助于汽车及零部件企业开拓海外市场，降低收汇风险。",
         "action_suggestions": [
           {
@@ -507,12 +444,7 @@
         "policy_brief": "中非合作论坛提出十大伙伴行动，深化经贸合作",
         "risk_level": "green",
         "risk_type": "产业扶持",
-        "affected_segments": [
-          "整车出口",
-          "零部件出口",
-          "售后市场",
-          "投资建厂"
-        ],
+        "affected_segments": ["整车出口", "零部件出口", "售后市场", "投资建厂"],
         "impact_analysis": "非洲市场对中国汽车产品需求将显著增长，3600亿资金支持和“熊猫债”政策将促进基建改善，利好汽车出口和本地化生产。",
         "action_suggestions": [
           {
@@ -537,10 +469,7 @@
         "policy_brief": "江苏无锡电动车产业积极开拓海外市场",
         "risk_level": "green",
         "risk_type": "市场动态",
-        "affected_segments": [
-          "整车出口",
-          "零部件出口"
-        ],
+        "affected_segments": ["整车出口", "零部件出口"],
         "impact_analysis": "文章展示电动车出口的积极态势，特别是两轮电动车企业获得海外订单的机会增多。对主机厂和配件商都是拓展海外市场的利好信号。",
         "action_suggestions": [
           {
@@ -565,10 +494,7 @@
         "policy_brief": "稳外贸政策将促进2025年汽车出口增长",
         "risk_level": "green",
         "risk_type": "产业扶持",
-        "affected_segments": [
-          "整车出口",
-          "零部件出口"
-        ],
+        "affected_segments": ["整车出口", "零部件出口"],
         "impact_analysis": "主机厂和配件生产商都将受益于政策红利，预计出口订单将稳步增长，融资环境改善。",
         "action_suggestions": [
           {
@@ -593,11 +519,7 @@
         "policy_brief": "中国外贸企业正加速开拓新兴市场",
         "risk_level": "green",
         "risk_type": "市场动态",
-        "affected_segments": [
-          "整车出口",
-          "零部件出口",
-          "售后市场"
-        ],
+        "affected_segments": ["整车出口", "零部件出口", "售后市场"],
         "impact_analysis": "新兴市场需求增长为中国汽车及零部件出口带来新机遇，但需注意当地市场准入要求和竞争态势。",
         "action_suggestions": [
           {
@@ -622,10 +544,7 @@
         "policy_brief": "国务院常务会议部署稳外贸工作",
         "risk_level": "green",
         "risk_type": "产业扶持",
-        "affected_segments": [
-          "整车出口",
-          "零部件出口"
-        ],
+        "affected_segments": ["整车出口", "零部件出口"],
         "impact_analysis": "国家出台稳外贸政策，将提升汽车出口企业信心，尤其利好新能源车企开拓海外市场。预计退税结算效率提升，有助于改善企业资金周转。",
         "action_suggestions": [
           {

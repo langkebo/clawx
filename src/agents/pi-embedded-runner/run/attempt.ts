@@ -3,8 +3,6 @@ import os from "node:os";
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
 import type { ImageContent } from "@mariozechner/pi-ai";
 import { streamSimple } from "@mariozechner/pi-ai";
-import { vikingRoute, buildSkillNamesOnlyPrompt, tryRuleBasedRoute, classifyPromptComplexity, vikingReRoute, vikingRouteWithFeedback, invalidateCacheForTool } from "../../viking-router.js";
-import type { VikingRouteResult } from "../../viking-router.js";
 import { createAgentSession, SessionManager, SettingsManager } from "@mariozechner/pi-coding-agent";
 import { resolveHeartbeatPrompt } from "../../../auto-reply/heartbeat.js";
 import { resolveChannelCapabilities } from "../../../config/channel-capabilities.js";
@@ -24,7 +22,6 @@ import { resolveUserPath } from "../../../utils.js";
 import { normalizeMessageChannel } from "../../../utils/message-channel.js";
 import { isReasoningTagProvider } from "../../../utils/provider-utils.js";
 import { resolveOpenClawAgentDir } from "../../agent-paths.js";
-import { loadL0Timeline, loadL1Decisions, loadL2Session, appendTimelineEntry, maybeTriggerL1Summary, extractTsids, extractTsidsFromL0, resolveSessionIdsFromTsids } from "../../history-index.js";
 import { resolveSessionAgentIds } from "../../agent-scope.js";
 import { createAnthropicPayloadLogger } from "../../anthropic-payload-log.js";
 import { makeBootstrapWarn, resolveBootstrapContextForRun } from "../../bootstrap-files.js";
@@ -36,6 +33,16 @@ import {
 import { DEFAULT_CONTEXT_TOKENS } from "../../defaults.js";
 import { resolveOpenClawDocsPath } from "../../docs-path.js";
 import { isTimeoutError } from "../../failover-error.js";
+import {
+  loadL0Timeline,
+  loadL1Decisions,
+  loadL2Session,
+  appendTimelineEntry,
+  maybeTriggerL1Summary,
+  extractTsids,
+  extractTsidsFromL0,
+  resolveSessionIdsFromTsids,
+} from "../../history-index.js";
 import { resolveImageSanitizationLimits } from "../../image-sanitization.js";
 import { resolveModelAuthMode } from "../../model-auth.js";
 import { resolveDefaultModelForAgent } from "../../model-selection.js";
@@ -73,9 +80,20 @@ import {
 import { buildSystemPromptParams } from "../../system-prompt-params.js";
 import { buildSystemPromptReport } from "../../system-prompt-report.js";
 import { resolveTranscriptPolicy } from "../../transcript-policy.js";
+import {
+  vikingRoute,
+  buildSkillNamesOnlyPrompt,
+  tryRuleBasedRoute,
+  classifyPromptComplexity,
+  vikingReRoute,
+  vikingRouteWithFeedback,
+  invalidateCacheForTool,
+} from "../../viking-router.js";
+import type { VikingRouteResult } from "../../viking-router.js";
 import { DEFAULT_BOOTSTRAP_FILENAME } from "../../workspace.js";
 import { isRunnerAbortError } from "../abort.js";
 import { appendCacheTtlTimestamp, isCacheTtlEligibleProvider } from "../cache-ttl.js";
+import { isThrashingDetected } from "../compact.js";
 import { buildEmbeddedExtensionPaths } from "../extensions.js";
 import { applyExtraParamsToAgent } from "../extra-params.js";
 import {
@@ -108,7 +126,6 @@ import {
   selectCompactionTimeoutSnapshot,
   shouldFlagCompactionTimeout,
 } from "./compaction-timeout.js";
-import { isThrashingDetected } from "../compact.js";
 import { detectAndLoadPromptImages } from "./images.js";
 import type { EmbeddedRunAttemptParams, EmbeddedRunAttemptResult } from "./types.js";
 
@@ -332,126 +349,142 @@ export async function runEmbeddedAttempt(
           disableMessageTool: params.disableMessageTool,
         });
 
-        // ===== OpenViking start =====
-        // 实时扫描 skills，不依赖可能过期的 skillsSnapshot
-        const vikingSkillEntries = loadWorkspaceSkillEntries(effectiveWorkspace);
-        const vikingSkills: Array<{name: string; description: string}> = [];
-        for (const e of vikingSkillEntries) {
-          vikingSkills.push({ name: e.skill.name, description: e.skill.description ?? "" });
+    // ===== OpenViking start =====
+    // 实时扫描 skills，不依赖可能过期的 skillsSnapshot
+    const vikingSkillEntries = loadWorkspaceSkillEntries(effectiveWorkspace);
+    const vikingSkills: Array<{ name: string; description: string }> = [];
+    for (const e of vikingSkillEntries) {
+      vikingSkills.push({ name: e.skill.name, description: e.skill.description ?? "" });
+    }
+    log.info(
+      `[viking] skills index (${vikingSkills.length}): [${vikingSkills.map((s) => s.name).join(", ")}]`,
+    );
+
+    const vikingFileNames = hookAdjustedBootstrapFiles.filter((f) => !f.missing).map((f) => f.name);
+    // ===== L0 时间线加载（始终） start =====
+    const l0Result = await loadL0Timeline({ agentDir });
+    // ===== L0 时间线加载（始终） end =====
+
+    // P2: 分析 prompt 复杂度
+    const complexity = classifyPromptComplexity(params.prompt, l0Result.rawTimeline || undefined);
+    log.info(
+      `[viking] prompt complexity: ${complexity.complexity} (maxTokens=${complexity.maxTokens})`,
+    );
+
+    // P4: 先尝试规则引擎（零成本路由）
+    let routingDecision: VikingRouteResult =
+      tryRuleBasedRoute({
+        fileNames: vikingFileNames,
+        promptLength: params.prompt?.length ?? 0,
+        hasFileContext: vikingFileNames.length > 0,
+        workspaceDir: effectiveWorkspace,
+      }) ??
+      (await vikingRoute({
+        prompt: params.prompt,
+        tools: toolsRaw,
+        fileNames: vikingFileNames,
+        skills: vikingSkills,
+        model: params.model,
+        modelRegistry: params.modelRegistry,
+        provider: params.provider,
+        timeline: l0Result.rawTimeline || undefined,
+      }));
+    // 应用路由结果：只保留模型选出的工具
+    let routedToolsRaw = routingDecision.skipped
+      ? toolsRaw
+      : toolsRaw.filter((t) => routingDecision.tools.has(t.name));
+    // 应用路由结果：只保留模型选出的 bootstrap 文件
+    const routedContextFiles = routingDecision.skipped
+      ? contextFiles
+      : contextFiles.filter((f) => {
+          const fileName = f.path.split("/").pop() ?? f.path;
+          return routingDecision.files.has(fileName);
+        });
+    // 应用路由结果：skills 精简模式
+    const routedSkillsPrompt =
+      routingDecision.skillsMode === "names"
+        ? buildSkillNamesOnlyPrompt(vikingSkills)
+        : skillsPrompt;
+    // ===== OpenViking end =====
+
+    // ===== L1 按日期按需加载 start =====
+    let l1Prompt = "";
+    if (routingDecision.needsL1 && routingDecision.l1Dates && routingDecision.l1Dates.length > 0) {
+      const l1Result = await loadL1Decisions({ agentDir, dates: routingDecision.l1Dates });
+      if (l1Result.available) {
+        l1Prompt = l1Result.prompt;
+        log.info(
+          `[viking] L1 loaded for dates [${routingDecision.l1Dates.join(",")}]: ${l1Result.prompt.length} chars`,
+        );
+      }
+    } else if (routingDecision.needsL1) {
+      const l1Result = await loadL1Decisions({ agentDir });
+      if (l1Result.available) {
+        l1Prompt = l1Result.prompt;
+        log.info(`[viking] L1 loaded (all): ${l1Result.prompt.length} chars`);
+      }
+    }
+    // ===== L1 按日期按需加载 end =====
+
+    // ===== L2 按需加载 start =====
+    let l2Prompt = "";
+    if (routingDecision.needsL2) {
+      // 优先从已加载的 L1 中提取时间戳 ID（更精确）
+      let relevantTsids = l1Prompt ? extractTsids(l1Prompt) : [];
+      // 如果 L1 中没有提取到，从 L0 的 dateTsidMap 回退
+      if (
+        relevantTsids.length === 0 &&
+        routingDecision.l1Dates &&
+        routingDecision.l1Dates.length > 0
+      ) {
+        relevantTsids = extractTsidsFromL0(l0Result, routingDecision.l1Dates);
+      }
+      // 将时间戳 ID 转换为 sessionId
+      const relevantSessionIds = resolveSessionIdsFromTsids(relevantTsids, l0Result.tsidSessionMap);
+      if (relevantSessionIds.length > 0) {
+        const l2Result = await loadL2Session({ agentDir, sessionIds: relevantSessionIds });
+        if (l2Result.available) {
+          l2Prompt = l2Result.prompt;
+          log.info(
+            `[viking] L2 loaded: ${l2Result.loadedSessionIds.length} sessions, ${l2Result.prompt.length} chars`,
+          );
         }
-        log.info(`[viking] skills index (${vikingSkills.length}): [${vikingSkills.map(s => s.name).join(", ")}]`);
+      } else {
+        log.info(
+          `[viking] L2 requested but no sessionIds resolved from tsids [${relevantTsids.join(",")}]`,
+        );
+      }
+    }
+    // ===== L2 按需加载 end =====
 
-        const vikingFileNames = hookAdjustedBootstrapFiles
-          .filter((f) => !f.missing)
-          .map((f) => f.name);
-        // ===== L0 时间线加载（始终） start =====
-        const l0Result = await loadL0Timeline({ agentDir });
-        // ===== L0 时间线加载（始终） end =====
-
-        // P2: 分析 prompt 复杂度
-        const complexity = classifyPromptComplexity(params.prompt, l0Result.rawTimeline || undefined);
-        log.info(`[viking] prompt complexity: ${complexity.complexity} (maxTokens=${complexity.maxTokens})`);
-
-        // P4: 先尝试规则引擎（零成本路由）
-        let routingDecision: VikingRouteResult = tryRuleBasedRoute({
-          fileNames: vikingFileNames,
-          promptLength: params.prompt?.length ?? 0,
-          hasFileContext: vikingFileNames.length > 0,
-          workspaceDir: effectiveWorkspace,
-        }) ?? await vikingRoute({
-          prompt: params.prompt,
-          tools: toolsRaw,
-          fileNames: vikingFileNames,
-          skills: vikingSkills,
+    // P0: 动态再路由 — 如果上次会话有工具缺失，自动补充
+    if (!routingDecision.skipped && params.prompt) {
+      const lastError = params.previousToolError;
+      if (lastError?.missingToolName) {
+        const feedbackResult = await vikingRouteWithFeedback({
+          feedback: {
+            routeResult: routingDecision,
+            executionResult: "tool_missing",
+            missingToolName: lastError.missingToolName,
+            errorMessage: lastError.errorMessage,
+          },
+          allTools: toolsRaw,
           model: params.model,
           modelRegistry: params.modelRegistry,
           provider: params.provider,
-          timeline: l0Result.rawTimeline || undefined,
         });
-        // 应用路由结果：只保留模型选出的工具
-        let routedToolsRaw = routingDecision.skipped
-          ? toolsRaw
-          : toolsRaw.filter((t) => routingDecision.tools.has(t.name));
-        // 应用路由结果：只保留模型选出的 bootstrap 文件
-        const routedContextFiles = routingDecision.skipped
-          ? contextFiles
-          : contextFiles.filter((f) => {
-              const fileName = f.path.split("/").pop() ?? f.path;
-              return routingDecision.files.has(fileName);
-            });
-        // 应用路由结果：skills 精简模式
-        const routedSkillsPrompt =
-          routingDecision.skillsMode === "names"
-            ? buildSkillNamesOnlyPrompt(vikingSkills)
-            : skillsPrompt;
-        // ===== OpenViking end =====
-
-        // ===== L1 按日期按需加载 start =====
-        let l1Prompt = "";
-        if (routingDecision.needsL1 && routingDecision.l1Dates && routingDecision.l1Dates.length > 0) {
-          const l1Result = await loadL1Decisions({ agentDir, dates: routingDecision.l1Dates });
-          if (l1Result.available) {
-            l1Prompt = l1Result.prompt;
-            log.info(`[viking] L1 loaded for dates [${routingDecision.l1Dates.join(",")}]: ${l1Result.prompt.length} chars`);
-          }
-        } else if (routingDecision.needsL1) {
-          const l1Result = await loadL1Decisions({ agentDir });
-          if (l1Result.available) {
-            l1Prompt = l1Result.prompt;
-            log.info(`[viking] L1 loaded (all): ${l1Result.prompt.length} chars`);
-          }
+        if (feedbackResult) {
+          routingDecision = feedbackResult;
+          routedToolsRaw = routingDecision.skipped
+            ? toolsRaw
+            : toolsRaw.filter((t) => routingDecision.tools.has(t.name));
+          invalidateCacheForTool(lastError.missingToolName);
+          log.info(
+            `[viking] P0 re-route applied: tools=[${routedToolsRaw.map((t) => t.name).join(",")}]`,
+          );
         }
-        // ===== L1 按日期按需加载 end =====
-
-        // ===== L2 按需加载 start =====
-        let l2Prompt = "";
-        if (routingDecision.needsL2) {
-          // 优先从已加载的 L1 中提取时间戳 ID（更精确）
-          let relevantTsids = l1Prompt ? extractTsids(l1Prompt) : [];
-          // 如果 L1 中没有提取到，从 L0 的 dateTsidMap 回退
-          if (relevantTsids.length === 0 && routingDecision.l1Dates && routingDecision.l1Dates.length > 0) {
-            relevantTsids = extractTsidsFromL0(l0Result, routingDecision.l1Dates);
-          }
-          // 将时间戳 ID 转换为 sessionId
-          const relevantSessionIds = resolveSessionIdsFromTsids(relevantTsids, l0Result.tsidSessionMap);
-          if (relevantSessionIds.length > 0) {
-            const l2Result = await loadL2Session({ agentDir, sessionIds: relevantSessionIds });
-            if (l2Result.available) {
-              l2Prompt = l2Result.prompt;
-              log.info(`[viking] L2 loaded: ${l2Result.loadedSessionIds.length} sessions, ${l2Result.prompt.length} chars`);
-            }
-          } else {
-            log.info(`[viking] L2 requested but no sessionIds resolved from tsids [${relevantTsids.join(",")}]`);
-          }
-        }
-        // ===== L2 按需加载 end =====
-
-        // P0: 动态再路由 — 如果上次会话有工具缺失，自动补充
-        if (!routingDecision.skipped && params.prompt) {
-          const lastError = params.previousToolError;
-          if (lastError?.missingToolName) {
-            const feedbackResult = await vikingRouteWithFeedback({
-              feedback: {
-                routeResult: routingDecision,
-                executionResult: "tool_missing",
-                missingToolName: lastError.missingToolName,
-                errorMessage: lastError.errorMessage,
-              },
-              allTools: toolsRaw,
-              model: params.model,
-              modelRegistry: params.modelRegistry,
-              provider: params.provider,
-            });
-            if (feedbackResult) {
-              routingDecision = feedbackResult;
-              routedToolsRaw = routingDecision.skipped
-                ? toolsRaw
-                : toolsRaw.filter((t) => routingDecision.tools.has(t.name));
-              invalidateCacheForTool(lastError.missingToolName);
-              log.info(`[viking] P0 re-route applied: tools=[${routedToolsRaw.map(t => t.name).join(",")}]`);
-            }
-          }
-        }
+      }
+    }
 
     const tools = sanitizeToolsForGoogle({ tools: routedToolsRaw, provider: params.provider });
     logToolSchemasForGoogle({ tools, provider: params.provider });
@@ -608,9 +641,15 @@ export async function runEmbeddedAttempt(
       })(),
       systemPrompt: (() => {
         let sp = appendPrompt;
-        if (l0Result.available) sp += "\n\n" + l0Result.prompt;
-        if (l1Prompt) sp += "\n\n" + l1Prompt;
-        if (l2Prompt) sp += "\n\n" + l2Prompt;
+        if (l0Result.available) {
+          sp += "\n\n" + l0Result.prompt;
+        }
+        if (l1Prompt) {
+          sp += "\n\n" + l1Prompt;
+        }
+        if (l2Prompt) {
+          sp += "\n\n" + l2Prompt;
+        }
         return sp;
       })(),
       bootstrapFiles: hookAdjustedBootstrapFiles,
@@ -620,9 +659,15 @@ export async function runEmbeddedAttempt(
     });
     const finalSystemPrompt = (() => {
       let sp = appendPrompt;
-      if (l0Result.available) sp += "\n\n" + l0Result.prompt;
-      if (l1Prompt) sp += "\n\n" + l1Prompt;
-      if (l2Prompt) sp += "\n\n" + l2Prompt;
+      if (l0Result.available) {
+        sp += "\n\n" + l0Result.prompt;
+      }
+      if (l1Prompt) {
+        sp += "\n\n" + l1Prompt;
+      }
+      if (l2Prompt) {
+        sp += "\n\n" + l2Prompt;
+      }
       return sp;
     })();
     const systemPromptOverride = createSystemPromptOverride(finalSystemPrompt);
@@ -823,10 +868,7 @@ export async function runEmbeddedAttempt(
         const historyLimit = l0Result.available
           ? l0Result.recentTurns
           : getDmHistoryLimitFromSessionKey(params.sessionKey, params.config);
-        const truncated = limitHistoryTurns(
-          validated,
-          historyLimit,
-        );
+        const truncated = limitHistoryTurns(validated, historyLimit);
         // Re-run tool_use/tool_result pairing repair after truncation, since
         // limitHistoryTurns can orphan tool_result blocks by removing the
         // assistant message that contained the matching tool_use.
@@ -842,16 +884,21 @@ export async function runEmbeddedAttempt(
           // 找最后一个 user 消息的索引（当前轮起点）
           let lastUserIdx = -1;
           for (let i = limited.length - 1; i >= 0; i--) {
-            if (limited[i].role === "user") { lastUserIdx = i; break; }
+            if (limited[i].role === "user") {
+              lastUserIdx = i;
+              break;
+            }
           }
           // 只有一轮或找不到历史轮次，直接返回
-          if (lastUserIdx <= 0) return limited;
+          if (lastUserIdx <= 0) {
+            return limited;
+          }
 
           // 从 decisions.md 加载今天的 L1（当前 session 最相关）
           // 用 l0Result 里的 tsidSessionMap 反查当前 sessionId 对应的 tsid
           // 简化方案：直接加载今天日期的 L1 决策
           const today = new Date();
-          const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+          const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
           let sessionL1Text = "";
           try {
             const sessionL1Result = await loadL1Decisions({ agentDir, dates: [todayStr] });
@@ -865,12 +912,19 @@ export async function runEmbeddedAttempt(
           // 如果没有 L1 可用，fallback：对历史 toolResult 做简单截断压缩
           if (!sessionL1Text) {
             return limited.map((msg, idx) => {
-              if (idx >= lastUserIdx || msg.role !== "toolResult") return msg;
+              if (idx >= lastUserIdx || msg.role !== "toolResult") {
+                return msg;
+              }
               const raw = Array.isArray(msg.content)
-                ? msg.content.map((b: { type?: string; text?: string }) =>
-                    b.type === "text" ? (b.text ?? "") : "").join("\n")
+                ? msg.content
+                    .map((b: { type?: string; text?: string }) =>
+                      b.type === "text" ? (b.text ?? "") : "",
+                    )
+                    .join("\n")
                 : "";
-              if (raw.length < 500) return msg;
+              if (raw.length < 500) {
+                return msg;
+              }
               const head = raw.slice(0, 300);
               const tail = raw.slice(-200);
               return {
@@ -1322,7 +1376,7 @@ export async function runEmbeddedAttempt(
                   promptLayer: newToolSet.size <= 2 ? "L0" : newToolSet.size <= 12 ? "L1" : "full",
                 };
                 log.info(
-                  `[viking] P1 post-compact re-route applied: +[${[...reRouteResult.addTools].join(",")}] -[${[...reRouteResult.removeTools].join(",")}] tools=[${routedToolsRaw.map(t => t.name).join(",")}]`,
+                  `[viking] P1 post-compact re-route applied: +[${[...reRouteResult.addTools].join(",")}] -[${[...reRouteResult.removeTools].join(",")}] tools=[${routedToolsRaw.map((t) => t.name).join(",")}]`,
                 );
               }
             } catch (reRouteErr) {
@@ -1480,38 +1534,40 @@ export async function runEmbeddedAttempt(
           });
       }
 
-        // ===== L0+L1 写入 start =====
-        await appendTimelineEntry({
-          agentDir,
-          sessionKey: params.sessionKey ?? params.sessionId,
-          sessionId: params.sessionId,
-          prompt: params.prompt,
-          assistantTexts: (() => {
-            const texts: string[] = [];
-            try {
-              for (const msg of (activeSession?.messages ?? [])) {
-                if (msg.role === "assistant" && typeof msg.content === "string") {
-                  texts.push(msg.content);
-                }
+      // ===== L0+L1 写入 start =====
+      await appendTimelineEntry({
+        agentDir,
+        sessionKey: params.sessionKey ?? params.sessionId,
+        sessionId: params.sessionId,
+        prompt: params.prompt,
+        assistantTexts: (() => {
+          const texts: string[] = [];
+          try {
+            for (const msg of activeSession?.messages ?? []) {
+              if (msg.role === "assistant" && typeof msg.content === "string") {
+                texts.push(msg.content);
               }
-            } catch { /* ignore */ }
-            return texts;
-          })(),
-          toolMetas: [],
-          durationMs: 0,
-          model: params.model,
-          modelRegistry: params.modelRegistry,
-          provider: params.provider,
-        }).catch(err => log.warn(`[history] L0+L1 append failed: ${err}`));
+            }
+          } catch {
+            /* ignore */
+          }
+          return texts;
+        })(),
+        toolMetas: [],
+        durationMs: 0,
+        model: params.model,
+        modelRegistry: params.modelRegistry,
+        provider: params.provider,
+      }).catch((err) => log.warn(`[history] L0+L1 append failed: ${err}`));
 
-        maybeTriggerL1Summary({
-          agentDir,
-          config: params.config,
-          model: params.model,
-          modelRegistry: params.modelRegistry,
-          provider: params.provider,
-        }).catch(err => log.warn(`[history] L1 trigger failed: ${err}`));
-        // ===== L0+L1 写入 end =====
+      maybeTriggerL1Summary({
+        agentDir,
+        config: params.config,
+        model: params.model,
+        modelRegistry: params.modelRegistry,
+        provider: params.provider,
+      }).catch((err) => log.warn(`[history] L1 trigger failed: ${err}`));
+      // ===== L0+L1 写入 end =====
       return {
         aborted,
         timedOut,

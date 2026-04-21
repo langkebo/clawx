@@ -45,6 +45,7 @@ const GROUP_LABELS: Record<string, string> = {
   discovery: "Discovery",
   presence: "Presence",
   voicewake: "Voice Wake",
+  viking: "Viking Routing",
 };
 
 const GROUP_ORDER: Record<string, number> = {
@@ -72,6 +73,7 @@ const GROUP_ORDER: Record<string, number> = {
   discovery: 210,
   presence: 220,
   voicewake: 230,
+  viking: 235,
   logging: 900,
 };
 
@@ -84,6 +86,7 @@ const FIELD_PLACEHOLDERS: Record<string, string> = {
   "gateway.controlUi.allowedOrigins": "https://control.example.com",
   "channels.mattermost.baseUrl": "https://chat.example.com",
   "agents.list[].identity.avatar": "avatars/openclaw.png",
+  "viking.routingModel": "e.g. gpt-4o-mini",
 };
 
 /**

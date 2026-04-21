@@ -52,7 +52,8 @@ function buildMemorySection(params: {
     return [];
   }
   const hasActiveMemory =
-    params.availableTools.has("active_memory_recall") || params.availableTools.has("active_memory_save");
+    params.availableTools.has("active_memory_recall") ||
+    params.availableTools.has("active_memory_save");
   const hasLegacyMemory =
     params.availableTools.has("memory_search") || params.availableTools.has("memory_get");
 
@@ -516,7 +517,9 @@ export function buildAgentSystemPrompt(params: {
     params.modelAliasLines && params.modelAliasLines.length > 0 && !isMinimal && !isReduced
       ? params.modelAliasLines.join("\n")
       : "",
-    params.modelAliasLines && params.modelAliasLines.length > 0 && !isMinimal && !isReduced ? "" : "",
+    params.modelAliasLines && params.modelAliasLines.length > 0 && !isMinimal && !isReduced
+      ? ""
+      : "",
     userTimezone
       ? "If you need the current date, time, or day of week, run session_status (📊 session_status)."
       : "",

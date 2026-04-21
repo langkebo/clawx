@@ -3,7 +3,7 @@ import { z } from "zod";
 
 /**
  * 钉钉渠道配置 Schema
- * 
+ *
  * 配置字段说明:
  * - enabled: 是否启用该渠道
  * - clientId: 钉钉应用的 AppKey
@@ -19,31 +19,31 @@ import { z } from "zod";
 export const DingtalkConfigSchema = z.object({
   /** 是否启用钉钉渠道 */
   enabled: z.boolean().optional().default(true),
-  
+
   /** 钉钉应用 AppKey (clientId) */
   clientId: z.string().optional(),
-  
+
   /** 钉钉应用 AppSecret (clientSecret) */
   clientSecret: z.string().optional(),
-  
+
   /** 单聊策略: open=开放, pairing=配对, allowlist=白名单 */
   dmPolicy: z.enum(["open", "pairing", "allowlist"]).optional().default("open"),
-  
+
   /** 群聊策略: open=开放, allowlist=白名单, disabled=禁用 */
   groupPolicy: z.enum(["open", "allowlist", "disabled"]).optional().default("open"),
-  
+
   /** 群聊是否需要 @机器人才响应 */
   requireMention: z.boolean().optional().default(true),
-  
+
   /** 单聊白名单: 允许的用户 ID 列表 */
   allowFrom: z.array(z.string()).optional(),
-  
+
   /** 群聊白名单: 允许的会话 ID 列表 */
   groupAllowFrom: z.array(z.string()).optional(),
-  
+
   /** 历史消息数量限制 */
   historyLimit: z.number().int().min(0).optional().default(10),
-  
+
   /** 文本分块大小限制 (钉钉单条消息最大 4000 字符) */
   textChunkLimit: z.number().int().positive().optional().default(4000),
 });
@@ -65,7 +65,7 @@ export function isConfigured(config: DingtalkConfig | undefined): boolean {
  * @returns 凭证对象或 undefined
  */
 export function resolveDingtalkCredentials(
-  config: DingtalkConfig | undefined
+  config: DingtalkConfig | undefined,
 ): { clientId: string; clientSecret: string } | undefined {
   if (!config?.clientId || !config?.clientSecret) {
     return undefined;

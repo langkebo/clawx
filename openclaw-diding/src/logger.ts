@@ -29,7 +29,7 @@ export function createLogger(
   opts?: {
     log?: (msg: string) => void;
     error?: (msg: string) => void;
-  }
+  },
 ): Logger {
   const logFn = opts?.log ?? console.log;
   const errorFn = opts?.error ?? console.error;

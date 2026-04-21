@@ -7,7 +7,7 @@
 interface ToolDef {
   name: string;
   description: string;
-  parameters: { type: 'object'; required?: string[]; properties: Record<string, unknown> };
+  parameters: { type: "object"; required?: string[]; properties: Record<string, unknown> };
   handler: (params: any) => Promise<unknown>;
 }
 
@@ -20,7 +20,7 @@ interface SkillApi {
 
 const MAX_BODY_SIZE = 5 * 1024 * 1024; // 5MB
 const DEFAULT_TIMEOUT = 30000;
-const USER_AGENT = 'XPR-Agent/1.0 (web-scraping-skill)';
+const USER_AGENT = "XPR-Agent/1.0 (web-scraping-skill)";
 
 // ── Shared helpers ──────────────────────────────
 
@@ -35,16 +35,16 @@ async function fetchPage(
   try {
     const resp = await fetch(url, {
       signal: controller.signal,
-      redirect: 'follow',
+      redirect: "follow",
       headers: {
-        'User-Agent': USER_AGENT,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        "User-Agent": USER_AGENT,
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         ...headers,
       },
     });
 
-    const contentType = resp.headers.get('content-type') || '';
-    const contentLength = parseInt(resp.headers.get('content-length') || '0');
+    const contentType = resp.headers.get("content-type") || "";
+    const contentLength = parseInt(resp.headers.get("content-length") || "0");
     if (contentLength > MAX_BODY_SIZE) {
       throw new Error(`Response too large: ${contentLength} bytes (max ${MAX_BODY_SIZE})`);
     }
@@ -57,7 +57,7 @@ async function fetchPage(
     return {
       html,
       status: resp.status,
-      contentType: contentType.split(';')[0].trim(),
+      contentType: contentType.split(";")[0].trim(),
       finalUrl: resp.url || url,
     };
   } finally {
@@ -67,40 +67,40 @@ async function fetchPage(
 
 function decodeEntities(text: string): string {
   return text
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&apos;/g, "'")
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n)))
     .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => String.fromCharCode(parseInt(n, 16)))
-    .replace(/&nbsp;/g, ' ');
+    .replace(/&nbsp;/g, " ");
 }
 
 function stripHtml(html: string): string {
   // Remove script, style, and noscript blocks
-  let text = html.replace(/<script[\s\S]*?<\/script>/gi, '');
-  text = text.replace(/<style[\s\S]*?<\/style>/gi, '');
-  text = text.replace(/<noscript[\s\S]*?<\/noscript>/gi, '');
+  let text = html.replace(/<script[\s\S]*?<\/script>/gi, "");
+  text = text.replace(/<style[\s\S]*?<\/style>/gi, "");
+  text = text.replace(/<noscript[\s\S]*?<\/noscript>/gi, "");
   // Remove HTML comments
-  text = text.replace(/<!--[\s\S]*?-->/g, '');
+  text = text.replace(/<!--[\s\S]*?-->/g, "");
   // Remove tags
-  text = text.replace(/<[^>]+>/g, ' ');
+  text = text.replace(/<[^>]+>/g, " ");
   // Decode entities
   text = decodeEntities(text);
   // Normalize whitespace
-  text = text.replace(/[ \t]+/g, ' ');
-  text = text.replace(/\n\s*\n\s*\n/g, '\n\n');
+  text = text.replace(/[ \t]+/g, " ");
+  text = text.replace(/\n\s*\n\s*\n/g, "\n\n");
   return text.trim();
 }
 
 function htmlToMarkdown(html: string): string {
   // Remove script/style/noscript
-  let md = html.replace(/<script[\s\S]*?<\/script>/gi, '');
-  md = md.replace(/<style[\s\S]*?<\/style>/gi, '');
-  md = md.replace(/<noscript[\s\S]*?<\/noscript>/gi, '');
-  md = md.replace(/<!--[\s\S]*?-->/g, '');
+  let md = html.replace(/<script[\s\S]*?<\/script>/gi, "");
+  md = md.replace(/<style[\s\S]*?<\/style>/gi, "");
+  md = md.replace(/<noscript[\s\S]*?<\/noscript>/gi, "");
+  md = md.replace(/<!--[\s\S]*?-->/g, "");
 
   // Headings
   md = md.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, (_, c) => `# ${stripHtml(c)}\n\n`);
@@ -111,8 +111,8 @@ function htmlToMarkdown(html: string): string {
   md = md.replace(/<h6[^>]*>([\s\S]*?)<\/h6>/gi, (_, c) => `###### ${stripHtml(c)}\n\n`);
 
   // Bold / italic
-  md = md.replace(/<(strong|b)[^>]*>([\s\S]*?)<\/\1>/gi, '**$2**');
-  md = md.replace(/<(em|i)[^>]*>([\s\S]*?)<\/\1>/gi, '*$2*');
+  md = md.replace(/<(strong|b)[^>]*>([\s\S]*?)<\/\1>/gi, "**$2**");
+  md = md.replace(/<(em|i)[^>]*>([\s\S]*?)<\/\1>/gi, "*$2*");
 
   // Links
   md = md.replace(/<a\s+[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_, href, text) => {
@@ -124,34 +124,35 @@ function htmlToMarkdown(html: string): string {
   md = md.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_, c) => `- ${stripHtml(c)}\n`);
 
   // Paragraphs / line breaks
-  md = md.replace(/<br\s*\/?>/gi, '\n');
-  md = md.replace(/<\/p>/gi, '\n\n');
-  md = md.replace(/<p[^>]*>/gi, '');
+  md = md.replace(/<br\s*\/?>/gi, "\n");
+  md = md.replace(/<\/p>/gi, "\n\n");
+  md = md.replace(/<p[^>]*>/gi, "");
 
   // Block-level elements → newlines
-  md = md.replace(/<\/(div|section|article|header|footer|main|nav)>/gi, '\n');
+  md = md.replace(/<\/(div|section|article|header|footer|main|nav)>/gi, "\n");
 
   // Remove remaining tags
-  md = md.replace(/<[^>]+>/g, '');
+  md = md.replace(/<[^>]+>/g, "");
 
   // Decode entities
   md = decodeEntities(md);
 
   // Clean up whitespace
-  md = md.replace(/[ \t]+/g, ' ');
-  md = md.replace(/\n{3,}/g, '\n\n');
+  md = md.replace(/[ \t]+/g, " ");
+  md = md.replace(/\n{3,}/g, "\n\n");
   return md.trim();
 }
 
 function extractTitle(html: string): string {
   const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-  return match ? decodeEntities(match[1].trim()) : '';
+  return match ? decodeEntities(match[1].trim()) : "";
 }
 
 function extractMetaDescription(html: string): string {
-  const match = html.match(/<meta\s+[^>]*name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i)
-    || html.match(/<meta\s+[^>]*content=["']([^"']*)["'][^>]*name=["']description["'][^>]*>/i);
-  return match ? decodeEntities(match[1].trim()) : '';
+  const match =
+    html.match(/<meta\s+[^>]*name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i) ||
+    html.match(/<meta\s+[^>]*content=["']([^"']*)["'][^>]*name=["']description["'][^>]*>/i);
+  return match ? decodeEntities(match[1].trim()) : "";
 }
 
 function resolveUrl(href: string, base: string): string {
@@ -165,7 +166,7 @@ function resolveUrl(href: string, base: string): string {
 interface ExtractedLink {
   href: string;
   text: string;
-  type: 'internal' | 'external';
+  type: "internal" | "external";
 }
 
 function extractLinksFromHtml(html: string, baseUrl: string): ExtractedLink[] {
@@ -178,23 +179,31 @@ function extractLinksFromHtml(html: string, baseUrl: string): ExtractedLink[] {
   try {
     baseOrigin = new URL(baseUrl).origin;
   } catch {
-    baseOrigin = '';
+    baseOrigin = "";
   }
 
   while ((match = re.exec(html)) !== null) {
     const rawHref = match[1].trim();
     // Skip anchors, javascript:, mailto:, tel:
-    if (rawHref.startsWith('#') || rawHref.startsWith('javascript:') || rawHref.startsWith('mailto:') || rawHref.startsWith('tel:')) continue;
+    if (
+      rawHref.startsWith("#") ||
+      rawHref.startsWith("javascript:") ||
+      rawHref.startsWith("mailto:") ||
+      rawHref.startsWith("tel:")
+    )
+      continue;
 
     const absoluteHref = resolveUrl(rawHref, baseUrl);
     if (seen.has(absoluteHref)) continue;
     seen.add(absoluteHref);
 
     const text = stripHtml(match[2]).slice(0, 200);
-    let linkType: 'internal' | 'external' = 'external';
+    let linkType: "internal" | "external" = "external";
     try {
-      if (new URL(absoluteHref).origin === baseOrigin) linkType = 'internal';
-    } catch { /* keep external */ }
+      if (new URL(absoluteHref).origin === baseOrigin) linkType = "internal";
+    } catch {
+      /* keep external */
+    }
 
     links.push({ href: absoluteHref, text, type: linkType });
   }
@@ -207,37 +216,45 @@ function extractLinksFromHtml(html: string, baseUrl: string): ExtractedLink[] {
 export default function webScrapingSkill(api: SkillApi): void {
   // ── scrape_url ──
   api.registerTool({
-    name: 'scrape_url',
+    name: "scrape_url",
     description: [
-      'Fetch a web page and return its text content with metadata.',
+      "Fetch a web page and return its text content with metadata.",
       'Strips HTML tags by default (format="text"). Use format="markdown" to preserve structure,',
       'or format="html" to get raw HTML. Max response size: 5MB.',
-    ].join(' '),
+    ].join(" "),
     parameters: {
-      type: 'object',
-      required: ['url'],
+      type: "object",
+      required: ["url"],
       properties: {
-        url: { type: 'string', description: 'URL to fetch' },
-        format: { type: 'string', description: '"text" (default), "markdown", or "html"' },
-        timeout: { type: 'number', description: 'Request timeout in milliseconds (default 30000)' },
-        headers: { type: 'object', description: 'Optional custom HTTP headers' },
+        url: { type: "string", description: "URL to fetch" },
+        format: { type: "string", description: '"text" (default), "markdown", or "html"' },
+        timeout: { type: "number", description: "Request timeout in milliseconds (default 30000)" },
+        headers: { type: "object", description: "Optional custom HTTP headers" },
       },
     },
-    handler: async ({ url, format, timeout, headers }: {
-      url: string; format?: string; timeout?: number; headers?: Record<string, string>;
+    handler: async ({
+      url,
+      format,
+      timeout,
+      headers,
+    }: {
+      url: string;
+      format?: string;
+      timeout?: number;
+      headers?: Record<string, string>;
     }) => {
       if (!url || !/^https?:\/\//i.test(url)) {
-        return { error: 'Invalid URL. Must start with http:// or https://' };
+        return { error: "Invalid URL. Must start with http:// or https://" };
       }
 
       try {
         const page = await fetchPage(url, timeout || DEFAULT_TIMEOUT, headers);
 
         let text: string;
-        const fmt = (format || 'text').toLowerCase();
-        if (fmt === 'html') {
+        const fmt = (format || "text").toLowerCase();
+        if (fmt === "html") {
           text = page.html;
-        } else if (fmt === 'markdown') {
+        } else if (fmt === "markdown") {
           text = htmlToMarkdown(page.html);
         } else {
           text = stripHtml(page.html);
@@ -263,26 +280,24 @@ export default function webScrapingSkill(api: SkillApi): void {
 
   // ── extract_links ──
   api.registerTool({
-    name: 'extract_links',
+    name: "extract_links",
     description: [
-      'Fetch a web page and extract all links with context.',
-      'Returns resolved absolute URLs, link text, and internal/external classification.',
-      'Use pattern parameter to filter links by regex on href.',
-    ].join(' '),
+      "Fetch a web page and extract all links with context.",
+      "Returns resolved absolute URLs, link text, and internal/external classification.",
+      "Use pattern parameter to filter links by regex on href.",
+    ].join(" "),
     parameters: {
-      type: 'object',
-      required: ['url'],
+      type: "object",
+      required: ["url"],
       properties: {
-        url: { type: 'string', description: 'URL to fetch and extract links from' },
-        pattern: { type: 'string', description: 'Optional regex pattern to filter link hrefs' },
-        limit: { type: 'number', description: 'Maximum links to return (default 50)' },
+        url: { type: "string", description: "URL to fetch and extract links from" },
+        pattern: { type: "string", description: "Optional regex pattern to filter link hrefs" },
+        limit: { type: "number", description: "Maximum links to return (default 50)" },
       },
     },
-    handler: async ({ url, pattern, limit }: {
-      url: string; pattern?: string; limit?: number;
-    }) => {
+    handler: async ({ url, pattern, limit }: { url: string; pattern?: string; limit?: number }) => {
       if (!url || !/^https?:\/\//i.test(url)) {
-        return { error: 'Invalid URL. Must start with http:// or https://' };
+        return { error: "Invalid URL. Must start with http:// or https://" };
       }
 
       try {
@@ -291,8 +306,8 @@ export default function webScrapingSkill(api: SkillApi): void {
 
         if (pattern) {
           try {
-            const re = new RegExp(pattern, 'i');
-            links = links.filter(l => re.test(l.href));
+            const re = new RegExp(pattern, "i");
+            links = links.filter((l) => re.test(l.href));
           } catch (err: any) {
             return { error: `Invalid regex pattern: ${err.message}` };
           }
@@ -315,37 +330,41 @@ export default function webScrapingSkill(api: SkillApi): void {
 
   // ── scrape_multiple ──
   api.registerTool({
-    name: 'scrape_multiple',
+    name: "scrape_multiple",
     description: [
-      'Fetch multiple URLs in parallel and return their text content.',
-      'Useful for research and comparison tasks. Max 10 URLs per call.',
-      'Uses Promise.allSettled so one failure does not block others.',
-    ].join(' '),
+      "Fetch multiple URLs in parallel and return their text content.",
+      "Useful for research and comparison tasks. Max 10 URLs per call.",
+      "Uses Promise.allSettled so one failure does not block others.",
+    ].join(" "),
     parameters: {
-      type: 'object',
-      required: ['urls'],
+      type: "object",
+      required: ["urls"],
       properties: {
-        urls: { type: 'array', description: 'Array of URLs to fetch (max 10)', items: { type: 'string' } },
-        format: { type: 'string', description: '"text" (default) or "html"' },
+        urls: {
+          type: "array",
+          description: "Array of URLs to fetch (max 10)",
+          items: { type: "string" },
+        },
+        format: { type: "string", description: '"text" (default) or "html"' },
       },
     },
     handler: async ({ urls, format }: { urls: string[]; format?: string }) => {
       if (!Array.isArray(urls) || urls.length === 0) {
-        return { error: 'urls must be a non-empty array of strings' };
+        return { error: "urls must be a non-empty array of strings" };
       }
       if (urls.length > 10) {
-        return { error: 'Maximum 10 URLs per call' };
+        return { error: "Maximum 10 URLs per call" };
       }
 
-      const fmt = (format || 'text').toLowerCase();
+      const fmt = (format || "text").toLowerCase();
 
       const results = await Promise.allSettled(
         urls.map(async (url) => {
           if (!url || !/^https?:\/\//i.test(url)) {
-            throw new Error('Invalid URL');
+            throw new Error("Invalid URL");
           }
           const page = await fetchPage(url);
-          const text = fmt === 'html' ? page.html : stripHtml(page.html);
+          const text = fmt === "html" ? page.html : stripHtml(page.html);
           return {
             url: page.finalUrl,
             title: extractTitle(page.html),
@@ -356,13 +375,19 @@ export default function webScrapingSkill(api: SkillApi): void {
       );
 
       const items = results.map((r, i) => {
-        if (r.status === 'fulfilled') {
+        if (r.status === "fulfilled") {
           return r.value;
         }
-        return { url: urls[i], title: '', text: '', status: 0, error: r.reason?.message || 'Unknown error' };
+        return {
+          url: urls[i],
+          title: "",
+          text: "",
+          status: 0,
+          error: r.reason?.message || "Unknown error",
+        };
       });
 
-      const succeeded = items.filter(r => !('error' in r)).length;
+      const succeeded = items.filter((r) => !("error" in r)).length;
       const failed = items.length - succeeded;
 
       return { results: items, succeeded, failed };

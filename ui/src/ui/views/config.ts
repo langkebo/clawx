@@ -254,6 +254,11 @@ const sidebarIcons = {
       <path d="m19.07 10.93-4.24 4.24"></path>
     </svg>
   `,
+  viking: html`
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+    </svg>
+  `,
   default: html`
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -274,6 +279,7 @@ const SECTIONS: Array<{ key: string; label: string }> = [
   { key: "hooks", label: "Hooks" },
   { key: "skills", label: "Skills" },
   { key: "tools", label: "Tools" },
+  { key: "viking", label: "Viking Routing" },
   { key: "gateway", label: "Gateway" },
   { key: "wizard", label: "Setup Wizard" },
 ];

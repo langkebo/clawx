@@ -106,7 +106,9 @@ class InMemoryTaskRegistry {
 
   async fail(id: string, error: string): Promise<void> {
     const task = await this.get(id);
-    if (!task) return;
+    if (!task) {
+      return;
+    }
 
     if (task.retryCount < task.maxRetries) {
       await this.update(id, {
@@ -197,15 +199,11 @@ class InMemoryTaskRegistry {
 
 export const taskRegistry = new InMemoryTaskRegistry();
 
-export async function scheduleBackgroundRouting(
-  payload: RoutingTaskPayload
-): Promise<string> {
+export async function scheduleBackgroundRouting(payload: RoutingTaskPayload): Promise<string> {
   return taskRegistry.create(payload);
 }
 
-export async function getRoutingTaskResult(
-  taskId: string
-): Promise<RoutingTaskResult | null> {
+export async function getRoutingTaskResult(taskId: string): Promise<RoutingTaskResult | null> {
   const task = await taskRegistry.get(taskId);
   if (task?.status === "completed" && task.result) {
     return task.result;
@@ -213,9 +211,7 @@ export async function getRoutingTaskResult(
   return null;
 }
 
-export async function getRoutingTask(
-  taskId: string
-): Promise<VikingRoutingTask | null> {
+export async function getRoutingTask(taskId: string): Promise<VikingRoutingTask | null> {
   return taskRegistry.get(taskId);
 }
 

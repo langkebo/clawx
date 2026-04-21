@@ -11,7 +11,7 @@ import {
 import type { AnyAgentTool } from "./common.js";
 import { jsonResult, readNumberParam, readStringParam, readStringArrayParam } from "./common.js";
 
-const TasksListSchema = Type.Object({
+const _TasksListSchema = Type.Object({
   status: Type.Optional(
     Type.String({ description: "Filter by status: pending|running|completed|failed|cancelled" }),
   ),
@@ -20,14 +20,16 @@ const TasksListSchema = Type.Object({
   limit: Type.Optional(Type.Number({ description: "Max results (default 20)" })),
 });
 
-const TasksCreateSchema = Type.Object({
+const _TasksCreateSchema = Type.Object({
   title: Type.String({ description: "Task title" }),
   description: Type.Optional(Type.String({ description: "Task description" })),
-  priority: Type.Optional(Type.String({ description: "Priority: low|medium|high (default medium)" })),
+  priority: Type.Optional(
+    Type.String({ description: "Priority: low|medium|high (default medium)" }),
+  ),
   tags: Type.Optional(Type.Array(Type.String(), { description: "Tags for categorization" })),
 });
 
-const TasksUpdateSchema = Type.Object({
+const _TasksUpdateSchema = Type.Object({
   taskId: Type.String({ description: "Task ID to update" }),
   status: Type.Optional(Type.String({ description: "New status" })),
   priority: Type.Optional(Type.String({ description: "New priority" })),
@@ -37,11 +39,11 @@ const TasksUpdateSchema = Type.Object({
   progress: Type.Optional(Type.Number({ description: "Progress percentage 0-100" })),
 });
 
-const TasksShowSchema = Type.Object({
+const _TasksShowSchema = Type.Object({
   taskId: Type.String({ description: "Task ID to show" }),
 });
 
-const TasksRemoveSchema = Type.Object({
+const _TasksRemoveSchema = Type.Object({
   taskId: Type.String({ description: "Task ID to remove" }),
 });
 
@@ -55,11 +57,19 @@ export function createTasksTool(): AnyAgentTool {
       action: Type.String({ description: "Action: list|create|update|show|remove" }),
       taskId: Type.Optional(Type.String({ description: "Task ID (for update/show/remove)" })),
       title: Type.Optional(Type.String({ description: "Task title (for create)" })),
-      description: Type.Optional(Type.String({ description: "Task description (for create/update)" })),
-      status: Type.Optional(Type.String({ description: "Task status (for create/update/list filter)" })),
-      priority: Type.Optional(Type.String({ description: "Task priority (for create/update/list filter)" })),
+      description: Type.Optional(
+        Type.String({ description: "Task description (for create/update)" }),
+      ),
+      status: Type.Optional(
+        Type.String({ description: "Task status (for create/update/list filter)" }),
+      ),
+      priority: Type.Optional(
+        Type.String({ description: "Task priority (for create/update/list filter)" }),
+      ),
       tags: Type.Optional(Type.Array(Type.String({ description: "Tags (for create)" }))),
-      error: Type.Optional(Type.String({ description: "Error message (for update with failed status)" })),
+      error: Type.Optional(
+        Type.String({ description: "Error message (for update with failed status)" }),
+      ),
       progress: Type.Optional(Type.Number({ description: "Progress 0-100 (for update)" })),
       limit: Type.Optional(Type.Number({ description: "Max results for list (default 20)" })),
     }),
@@ -92,17 +102,29 @@ export function createTasksTool(): AnyAgentTool {
           const taskId = readStringParam(params, "taskId", { required: true });
           const updates: Parameters<typeof updateTask>[1] = {};
           const status = readStringParam(params, "status");
-          if (status) updates.status = status as TaskStatus;
+          if (status) {
+            updates.status = status as TaskStatus;
+          }
           const priority = readStringParam(params, "priority");
-          if (priority) updates.priority = priority as TaskPriority;
+          if (priority) {
+            updates.priority = priority as TaskPriority;
+          }
           const title = readStringParam(params, "title");
-          if (title) updates.title = title;
+          if (title) {
+            updates.title = title;
+          }
           const desc = readStringParam(params, "description");
-          if (desc) updates.description = desc;
+          if (desc) {
+            updates.description = desc;
+          }
           const err = readStringParam(params, "error");
-          if (err) updates.error = err;
+          if (err) {
+            updates.error = err;
+          }
           const progress = readNumberParam(params, "progress");
-          if (progress != null) updates.progress = progress;
+          if (progress != null) {
+            updates.progress = progress;
+          }
 
           const updated = await updateTask(taskId, updates);
           if (!updated) {
@@ -127,7 +149,9 @@ export function createTasksTool(): AnyAgentTool {
         }
 
         default:
-          return jsonResult({ error: `Unknown action: ${action}. Use list|create|update|show|remove.` });
+          return jsonResult({
+            error: `Unknown action: ${action}. Use list|create|update|show|remove.`,
+          });
       }
     },
   };

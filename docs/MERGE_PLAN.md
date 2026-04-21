@@ -10,29 +10,29 @@
 
 ### 1.1 需手动合并的高危文件（3 个）
 
-| 文件 | 冲突等级 | 原因 | 策略 |
-|------|----------|------|------|
-| `src/agents/system-prompt.ts` | 🔴 **极高** | 你加了 L0/L1/L2 PromptMode + isReduced 逻辑；官方也大幅修改了 prompt 内容 | **双向合并**：保留 Viking 的 PromptMode 扩展，同时接入官方新增的 sections |
-| `src/agents/pi-embedded-runner/run/attempt.ts` | 🔴 **极高** | 你插入了 Viking 路由调用块（~50行）；官方也改了 attempt 流程 | **精确定位插入点**：在官方新 attempt 逻辑中重现 Viking 集成代码 |
-| `src/agents/viking-router.ts` | 🟡 **中** | 你独有文件，不冲突，但需要适配官方新 API | **适配升级**：检查 ModelRegistry/Model 类型签名是否变更 |
+| 文件                                           | 冲突等级    | 原因                                                                      | 策略                                                                      |
+| ---------------------------------------------- | ----------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `src/agents/system-prompt.ts`                  | 🔴 **极高** | 你加了 L0/L1/L2 PromptMode + isReduced 逻辑；官方也大幅修改了 prompt 内容 | **双向合并**：保留 Viking 的 PromptMode 扩展，同时接入官方新增的 sections |
+| `src/agents/pi-embedded-runner/run/attempt.ts` | 🔴 **极高** | 你插入了 Viking 路由调用块（~50行）；官方也改了 attempt 流程              | **精确定位插入点**：在官方新 attempt 逻辑中重现 Viking 集成代码           |
+| `src/agents/viking-router.ts`                  | 🟡 **中**   | 你独有文件，不冲突，但需要适配官方新 API                                  | **适配升级**：检查 ModelRegistry/Model 类型签名是否变更                   |
 
 ### 1.2 低风险文件（安全自动合并）
 
-| 文件 | 情况 |
-|------|------|
-| `src/agents/viking-task-registry.ts` | 独有文件，零冲突 |
-| `src/agents/viking-routervllm.ts` | 独有文件，零冲突 |
-| `src/agents/history-index.ts` | 独有文件，零冲突 |
-| `src/security/*.ts` | 你已按官方 PR 实现的安全修复，需对比是否与官方一致 |
-| `Microsoft/`, `Swabble/`, `openclaw-diding/` | 独有目录，零冲突 |
+| 文件                                         | 情况                                               |
+| -------------------------------------------- | -------------------------------------------------- |
+| `src/agents/viking-task-registry.ts`         | 独有文件，零冲突                                   |
+| `src/agents/viking-routervllm.ts`            | 独有文件，零冲突                                   |
+| `src/agents/history-index.ts`                | 独有文件，零冲突                                   |
+| `src/security/*.ts`                          | 你已按官方 PR 实现的安全修复，需对比是否与官方一致 |
+| `Microsoft/`, `Swabble/`, `openclaw-diding/` | 独有目录，零冲突                                   |
 
 ### 1.3 可删除的冗余文件
 
-| 文件 | 原因 |
-|------|------|
-| `src/agents/viking-router 兼容opy.ts` | 旧版备份，不再需要 |
-| `src/agents/viking-router.ts.bak` | 更早备份 |
-| `src/agents/system-prompt.ts.bak` | 备份文件 |
+| 文件                                       | 原因                   |
+| ------------------------------------------ | ---------------------- |
+| `src/agents/viking-router 兼容opy.ts`      | 旧版备份，不再需要     |
+| `src/agents/viking-router.ts.bak`          | 更早备份               |
+| `src/agents/system-prompt.ts.bak`          | 备份文件               |
 | `src/agents/viking-router c思考兼容opy.ts` | git 记录中的旧版文件名 |
 
 ---
@@ -100,6 +100,7 @@ git diff --name-only --diff-filter=U
 ```
 
 **预期冲突文件**：
+
 1. `src/agents/system-prompt.ts` — **必须手动合并**
 2. `src/agents/pi-embedded-runner/run/attempt.ts` — **必须手动合并**
 3. `package.json` — 版本号冲突，自动或手动解决
@@ -110,6 +111,7 @@ git diff --name-only --diff-filter=U
 ### Step 4：合并 system-prompt.ts（最关键步骤）
 
 **原理**：官方版本的 `buildSystemPrompt()` 函数签名和 sections 组装可能已变，但 Viking 的修改集中在：
+
 - 新增 PromptMode 类型 `"L0" | "L1"`
 - 新增 `isL0`, `isL1`, `isReduced` 变量
 - 在 sections 组装中插入条件跳过逻辑
@@ -161,12 +163,14 @@ const isReduced = isL0 || isL1; // L0 或 L1 都跳过 full-only sections
 // isL0 → 额外跳过: Tooling, Tool Call Style, Skills, Memory, Docs
 
 // 示例（假设官方有个 messagingSection）：
-if (!isReduced) {  // Viking 扩展：L0/L1 都不需要 messaging
+if (!isReduced) {
+  // Viking 扩展：L0/L1 都不需要 messaging
   lines.push(...messagingSection);
 }
 ```
 
 **注意**：如果官方在此期间新增了 sections，需逐一评估：
+
 - 如果是"核心对话能力"section（如新增的 embed/reply tags）→ `isReduced` 时跳过
 - 如果是"基础 runtime"section → 保留给 L0
 
@@ -177,6 +181,7 @@ if (!isReduced) {  // Viking 扩展：L0/L1 都不需要 messaging
 **原理**：Viking 在 attempt.ts 中的集成是一个约 50 行的插入块，位于工具收集完成之后、system prompt 组装之前。
 
 **Viking 代码块的精确定位**：
+
 ```
 搜索标记: "OpenViking start"
 结束标记: "OpenViking end"
@@ -202,15 +207,15 @@ L1 标记: "L1 按日期按需加载"
 // ===== OpenViking start =====
 // 实时扫描 skills
 const vikingSkillEntries = loadWorkspaceSkillEntries(effectiveWorkspace);
-const vikingSkills: Array<{name: string; description: string}> = [];
+const vikingSkills: Array<{ name: string; description: string }> = [];
 for (const e of vikingSkillEntries) {
   vikingSkills.push({ name: e.skill.name, description: e.skill.description ?? "" });
 }
-log.info(`[viking] skills index (${vikingSkills.length}): [${vikingSkills.map(s => s.name).join(", ")}]`);
+log.info(
+  `[viking] skills index (${vikingSkills.length}): [${vikingSkills.map((s) => s.name).join(", ")}]`,
+);
 
-const vikingFileNames = hookAdjustedBootstrapFiles
-  .filter((f) => !f.missing)
-  .map((f) => f.name);
+const vikingFileNames = hookAdjustedBootstrapFiles.filter((f) => !f.missing).map((f) => f.name);
 
 // ===== L0 时间线加载（始终） start =====
 const l0Result = await loadL0Timeline({ agentDir });
@@ -238,9 +243,7 @@ const routedContextFiles = routingDecision.skipped
       return routingDecision.files.has(fileName);
     });
 const routedSkillsPrompt =
-  routingDecision.skillsMode === "names"
-    ? buildSkillNamesOnlyPrompt(vikingSkills)
-    : skillsPrompt;
+  routingDecision.skillsMode === "names" ? buildSkillNamesOnlyPrompt(vikingSkills) : skillsPrompt;
 // ===== OpenViking end =====
 
 // ===== L1 按日期按需加载 start =====
@@ -249,7 +252,9 @@ if (routingDecision.needsL1 && routingDecision.l1Dates && routingDecision.l1Date
   const l1Result = await loadL1Decisions({ agentDir, dates: routingDecision.l1Dates });
   if (l1Result.available) {
     l1Prompt = l1Result.prompt;
-    log.info(`[viking] L1 loaded for dates [${routingDecision.l1Dates.join(",")}]: ${l1Result.prompt.length} chars`);
+    log.info(
+      `[viking] L1 loaded for dates [${routingDecision.l1Dates.join(",")}]: ${l1Result.prompt.length} chars`,
+    );
   }
 } else if (routingDecision.needsL1) {
   // needsL1=true 但无具体日期 → 加载最近的 L1
@@ -259,6 +264,7 @@ if (routingDecision.needsL1 && routingDecision.l1Dates && routingDecision.l1Date
 ```
 
 **关键注意事项**：
+
 - `routedToolsRaw` 需要在后续的 tools 变量赋值处替换 `toolsRaw`
 - `routedContextFiles` 需要在 contextFiles 使用处替换
 - `routedSkillsPrompt` 需要在 skillsPrompt 使用处替换
@@ -281,6 +287,7 @@ if (routingDecision.needsL1 && routingDecision.l1Dates && routingDecision.l1Date
 ```
 
 **具体检查项**：
+
 1. `Model<Api>` 的 `.baseUrl` / `.id` / `.name` 属性是否仍存在
 2. `ModelRegistry.getApiKey()` 是否改为异步或签名变更
 3. `loadWorkspaceSkillEntries()` 是否在新版中移位或重命名
@@ -393,19 +400,19 @@ rm -rf .viking-backup
 
 升级后必须保持正常工作的 Viking 功能：
 
-| 功能 | 验证方法 | 优先级 |
-|------|----------|--------|
-| 分层路由（能力包选择） | `[viking] routing call` 日志 | 🔴 必须 |
-| L0 时间线加载 | `[viking] L0` 日志 | 🔴 必须 |
-| L1 按日期加载 | 引用之前工作时的 `[viking] L1` 日志 | 🔴 必须 |
-| L2 完整对话按需 | 需要详细对话时的按需加载 | 🟡 重要 |
-| 路由缓存命中 | `[viking] cache hit` 日志 | 🟡 重要 |
-| Failover 重试 | 429/503 时自动重试 | 🟡 重要 |
-| Skills 精简模式 | 简单任务只给名称列表 | 🟡 重要 |
-| 18 个国产 Provider | dashscope/siliconflow/moonshot/ark 等 | 🔴 必须 |
-| SearXNG 搜索 | 替代/supplement web_search | 🟢 可选 |
-| vLLM 本地路由 | viking-routervllm.ts | 🟢 可选 |
-| Task Registry | 后台异步路由任务 | 🟢 可选 |
+| 功能                   | 验证方法                              | 优先级  |
+| ---------------------- | ------------------------------------- | ------- |
+| 分层路由（能力包选择） | `[viking] routing call` 日志          | 🔴 必须 |
+| L0 时间线加载          | `[viking] L0` 日志                    | 🔴 必须 |
+| L1 按日期加载          | 引用之前工作时的 `[viking] L1` 日志   | 🔴 必须 |
+| L2 完整对话按需        | 需要详细对话时的按需加载              | 🟡 重要 |
+| 路由缓存命中           | `[viking] cache hit` 日志             | 🟡 重要 |
+| Failover 重试          | 429/503 时自动重试                    | 🟡 重要 |
+| Skills 精简模式        | 简单任务只给名称列表                  | 🟡 重要 |
+| 18 个国产 Provider     | dashscope/siliconflow/moonshot/ark 等 | 🔴 必须 |
+| SearXNG 搜索           | 替代/supplement web_search            | 🟢 可选 |
+| vLLM 本地路由          | viking-routervllm.ts                  | 🟢 可选 |
+| Task Registry          | 后台异步路由任务                      | 🟢 可选 |
 
 ---
 
@@ -462,33 +469,33 @@ git push
 
 ## 六、时间估算
 
-| 步骤 | 预计时间 | 依赖 |
-|------|----------|------|
-| Step 1: 环境准备 | 15 分钟 | 无 |
-| Step 2: Fetch 上游 | 5-30 分钟 | 网络 |
-| Step 3: Merge + 冲突查看 | 10 分钟 | Step 2 |
+| 步骤                          | 预计时间     | 依赖               |
+| ----------------------------- | ------------ | ------------------ |
+| Step 1: 环境准备              | 15 分钟      | 无                 |
+| Step 2: Fetch 上游            | 5-30 分钟    | 网络               |
+| Step 3: Merge + 冲突查看      | 10 分钟      | Step 2             |
 | Step 4: 合并 system-prompt.ts | **1-2 小时** | Step 3, 需仔细对比 |
-| Step 5: 合并 attempt.ts | **1-2 小时** | Step 3, 需仔细对比 |
-| Step 6: 更新 viking-router.ts | 30 分钟 | Step 3 |
-| Step 7: Security 对比 | 30 分钟 | Step 3 |
-| Step 8: 清理 + 版本号 | 15 分钟 | Step 6,7 |
-| Step 9: 构建+测试 | 1-2 小时 | Step 8 |
-| Step 10: 提交清理 | 15 分钟 | Step 9 |
-| **总计** | **4-7 小时** | |
+| Step 5: 合并 attempt.ts       | **1-2 小时** | Step 3, 需仔细对比 |
+| Step 6: 更新 viking-router.ts | 30 分钟      | Step 3             |
+| Step 7: Security 对比         | 30 分钟      | Step 3             |
+| Step 8: 清理 + 版本号         | 15 分钟      | Step 6,7           |
+| Step 9: 构建+测试             | 1-2 小时     | Step 8             |
+| Step 10: 提交清理             | 15 分钟      | Step 9             |
+| **总计**                      | **4-7 小时** |                    |
 
 ---
 
 ## 七、风险矩阵
 
-| 风险 | 概率 | 影响 | 缓解措施 |
-|------|------|------|----------|
-| system-prompt.ts 合并遗漏 Viking 条件 | 中 | 高 | 逐步测试 L0/L1/L2 三种模式 |
-| attempt.ts 官方流程变更导致 Viking 注入点移动 | 高 | 高 | 搜索锚点函数名定位 |
-| viking-router.ts 的 Model 类型不兼容 | 低 | 高 | TypeScript 编译即发现 |
-| 官方 Plugin SDK 变更影响 Provider 加载 | 中 | 中 | 测试所有国产 Provider |
-| 新依赖与 Windows 环境不兼容 | 低 | 中 | pnpm install 检查 |
-| SearXNG 工具与官方 web_search 冲突 | 低 | 低 | 两者独立，可共存 |
+| 风险                                          | 概率 | 影响 | 缓解措施                   |
+| --------------------------------------------- | ---- | ---- | -------------------------- |
+| system-prompt.ts 合并遗漏 Viking 条件         | 中   | 高   | 逐步测试 L0/L1/L2 三种模式 |
+| attempt.ts 官方流程变更导致 Viking 注入点移动 | 高   | 高   | 搜索锚点函数名定位         |
+| viking-router.ts 的 Model 类型不兼容          | 低   | 高   | TypeScript 编译即发现      |
+| 官方 Plugin SDK 变更影响 Provider 加载        | 中   | 中   | 测试所有国产 Provider      |
+| 新依赖与 Windows 环境不兼容                   | 低   | 中   | pnpm install 检查          |
+| SearXNG 工具与官方 web_search 冲突            | 低   | 低   | 两者独立，可共存           |
 
 ---
 
-*方案版本: v1.0 | 日期: 2026-04-12 | 基于 upstream 2026.4.11*
+_方案版本: v1.0 | 日期: 2026-04-12 | 基于 upstream 2026.4.11_

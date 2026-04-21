@@ -11,11 +11,11 @@
  * Requirements: 1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 3.1
  */
 
-import type { ResolvedDingtalkAccount, DingtalkConfig } from "./types.js";
 import { DingtalkConfigSchema, isConfigured, resolveDingtalkCredentials } from "./config.js";
-import { dingtalkOutbound } from "./outbound.js";
 import { monitorDingtalkProvider } from "./monitor.js";
+import { dingtalkOutbound } from "./outbound.js";
 import { setDingtalkRuntime } from "./runtime.js";
+import type { ResolvedDingtalkAccount, DingtalkConfig } from "./types.js";
 
 /** 默认账户 ID */
 export const DEFAULT_ACCOUNT_ID = "default";
@@ -224,7 +224,9 @@ export const dingtalkPlugin = {
     collectWarnings: (params: { cfg: PluginConfig }): string[] => {
       const dingtalkCfg = params.cfg.channels?.dingtalk;
       const groupPolicy = dingtalkCfg?.groupPolicy ?? "allowlist";
-      if (groupPolicy !== "open") return [];
+      if (groupPolicy !== "open") {
+        return [];
+      }
       return [
         `- DingTalk groups: groupPolicy="open" allows any member to trigger (mention-gated). Set channels.dingtalk.groupPolicy="allowlist" + channels.dingtalk.groupAllowFrom to restrict senders.`,
       ];
@@ -294,11 +296,13 @@ export const dingtalkPlugin = {
 
       return monitorDingtalkProvider({
         config: ctx.cfg,
-        runtime:
-          (ctx.runtime as { log?: (msg: string) => void; error?: (msg: string) => void }) ?? {
+        runtime: (ctx.runtime as {
+          log?: (msg: string) => void;
+          error?: (msg: string) => void;
+        }) ?? {
           log: ctx.log?.info ?? console.log,
           error: ctx.log?.error ?? console.error,
-          },
+        },
         abortSignal: ctx.abortSignal,
         accountId: ctx.accountId,
       });

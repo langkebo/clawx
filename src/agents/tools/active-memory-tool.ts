@@ -13,7 +13,8 @@ const ActiveMemoryRecallSchema = Type.Object({
   }),
   context: Type.Optional(
     Type.String({
-      description: "Optional extra context to narrow the recall (e.g., 'last week', 'about deployment').",
+      description:
+        "Optional extra context to narrow the recall (e.g., 'last week', 'about deployment').",
     }),
   ),
 });

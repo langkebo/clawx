@@ -430,7 +430,7 @@ export const nodeHandlers: GatewayRequestHandlers = {
       );
     });
   },
-  "commands.list": async ({ params, respond, context }) => {
+  "commands.list": async ({ params: _params, respond, context }) => {
     await respondUnavailableOnThrow(respond, async () => {
       const connected = context.nodeRegistry.listConnected();
       const commands = uniqueSortedStrings(connected.flatMap((n) => n.commands ?? []));

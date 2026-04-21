@@ -12,7 +12,10 @@ export function isSupportedLocale(value: string | null | undefined): value is Lo
 
 class I18nManager {
   private locale: Locale = "zh-CN";
-  private translations: Record<Locale, TranslationMap> = { en, "zh-CN": zh_CN } as Record<Locale, TranslationMap>;
+  private translations: Record<Locale, TranslationMap> = { en, "zh-CN": zh_CN } as Record<
+    Locale,
+    TranslationMap
+  >;
   private subscribers: Set<Subscriber> = new Set();
 
   constructor() {

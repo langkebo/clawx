@@ -1,5 +1,5 @@
-import type { Command } from "commander";
 import chalk from "chalk";
+import type { Command } from "commander";
 import {
   createTask,
   deleteTask,
@@ -38,10 +38,16 @@ function formatTaskRow(task: Task): string {
 function formatAge(timestampMs: number): string {
   const diffMs = Date.now() - timestampMs;
   const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 1) {
+    return "just now";
+  }
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
 }
@@ -85,7 +91,10 @@ export function registerTasksCli(program: Command) {
   tasks
     .command("list")
     .description("List all tasks (optionally filtered by status, priority, or tag)")
-    .option("-s, --status <status>", "Filter by status (pending|running|completed|failed|cancelled)")
+    .option(
+      "-s, --status <status>",
+      "Filter by status (pending|running|completed|failed|cancelled)",
+    )
     .option("-p, --priority <priority>", "Filter by priority (low|medium|high)")
     .option("-t, --tag <tag>", "Filter by tag")
     .option("-l, --limit <number>", "Max tasks to show", "20")
@@ -140,7 +149,10 @@ export function registerTasksCli(program: Command) {
         title,
         description: opts.description,
         priority: (opts.priority as TaskPriority) ?? "medium",
-        tags: opts.tags?.split(",").map((t: string) => t.trim()).filter(Boolean),
+        tags: opts.tags
+          ?.split(",")
+          .map((t: string) => t.trim())
+          .filter(Boolean),
       });
       console.log(chalk.green(`✓ Task created: ${task.id}`));
       console.log(formatTaskRow(task));
@@ -156,13 +168,27 @@ export function registerTasksCli(program: Command) {
     .option("--error <error>", "Error message (for failed tasks)")
     .option("--progress <number>", "Progress percentage (0-100)")
     .action(async (taskId: string, opts) => {
-      const updates: Partial<Pick<Task, "title" | "description" | "status" | "priority" | "error" | "progress">> = {};
-      if (opts.status) updates.status = opts.status as TaskStatus;
-      if (opts.priority) updates.priority = opts.priority as TaskPriority;
-      if (opts.title) updates.title = opts.title;
-      if (opts.description) updates.description = opts.description;
-      if (opts.error) updates.error = opts.error;
-      if (opts.progress != null) updates.progress = parseInt(opts.progress, 10);
+      const updates: Partial<
+        Pick<Task, "title" | "description" | "status" | "priority" | "error" | "progress">
+      > = {};
+      if (opts.status) {
+        updates.status = opts.status as TaskStatus;
+      }
+      if (opts.priority) {
+        updates.priority = opts.priority as TaskPriority;
+      }
+      if (opts.title) {
+        updates.title = opts.title;
+      }
+      if (opts.description) {
+        updates.description = opts.description;
+      }
+      if (opts.error) {
+        updates.error = opts.error;
+      }
+      if (opts.progress != null) {
+        updates.progress = parseInt(opts.progress, 10);
+      }
 
       const updated = await updateTask(taskId, updates);
       if (!updated) {
@@ -213,13 +239,18 @@ export function registerTasksCli(program: Command) {
     .action(async (opts) => {
       const maxAgeDays = parseInt(opts.maxAgeDays, 10) || 7;
       const deleted = await cleanupCompletedTasks(maxAgeDays * 24 * 60 * 60 * 1000);
-      console.log(chalk.green(`✓ Cleaned up ${deleted} completed task(s) older than ${maxAgeDays} day(s)`));
+      console.log(
+        chalk.green(`✓ Cleaned up ${deleted} completed task(s) older than ${maxAgeDays} day(s)`),
+      );
     });
 
   tasks.addHelpText(
     "after",
     formatHelpExamples([
-      ["openclaw tasks add 'Deploy to production' -p high -t deploy,prod", "Add a high-priority task"],
+      [
+        "openclaw tasks add 'Deploy to production' -p high -t deploy,prod",
+        "Add a high-priority task",
+      ],
       ["openclaw tasks list --status running", "List running tasks"],
       ["openclaw tasks update task_xxx --status completed", "Mark a task as completed"],
       ["openclaw tasks stats", "Show task statistics"],

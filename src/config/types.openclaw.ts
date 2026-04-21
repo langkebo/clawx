@@ -103,6 +103,9 @@ export type OpenClawConfig = {
     cacheTtlMs?: number;
     ruleEngine?: boolean;
     dynamicReroute?: boolean;
+    postCompactReroute?: boolean;
+    modelSwitching?: boolean;
+    parallelRouting?: boolean;
     feedbackLoop?: boolean;
     routingModel?: string;
   };

@@ -1,16 +1,16 @@
-﻿/**
+/**
  * 钉钉 Stream 连接管理
- * 
+ *
  * 使用 dingtalk-stream SDK 建立持久连接接收消息
- * 
+ *
  */
 
 import { DWClient, TOPIC_ROBOT } from "dingtalk-stream";
-import { createDingtalkClientFromConfig } from "./client.js";
 import { handleDingtalkMessage } from "./bot.js";
+import { createDingtalkClientFromConfig } from "./client.js";
 import type { DingtalkConfig } from "./config.js";
-import type { DingtalkRawMessage } from "./types.js";
 import { createLogger, type Logger } from "./logger.js";
+import type { DingtalkRawMessage } from "./types.js";
 
 /**
  * Monitor 配置选项
@@ -34,6 +34,7 @@ export interface MonitorDingtalkOpts {
 }
 
 /** 当前活跃的 Stream 客户端 */
+// oxlint-disable-next-line no-redundant-type-constituents: DWClient is untyped from dingtalk-stream SDK
 let currentClient: DWClient | null = null;
 
 /** 当前活跃连接的账户 ID */
@@ -47,22 +48,22 @@ let currentStop: (() => void) | null = null;
 
 /**
  * 启动钉钉 Stream 连接监控
- * 
+ *
  * 使用 DWClient 建立 Stream 连接，注册 TOPIC_ROBOT 回调处理消息。
  * 支持 abortSignal 进行优雅关闭。
- * 
+ *
  * @param opts 监控配置选项
  * @returns Promise<void> 连接关闭时 resolve
  * @throws Error 如果凭证未配置
  */
 export async function monitorDingtalkProvider(opts: MonitorDingtalkOpts = {}): Promise<void> {
   const { config, runtime, abortSignal, accountId = "default" } = opts;
-  
+
   const logger: Logger = createLogger("dingtalk", {
     log: runtime?.log,
     error: runtime?.error,
   });
-  
+
   // Single-account: only one active connection allowed.
   if (currentClient) {
     if (currentAccountId && currentAccountId !== accountId) {
@@ -114,7 +115,9 @@ export async function monitorDingtalkProvider(opts: MonitorDingtalkOpts = {}): P
     };
 
     const finalizeResolve = () => {
-      if (stopped) return;
+      if (stopped) {
+        return;
+      }
       stopped = true;
       abortSignal?.removeEventListener("abort", handleAbort);
       cleanup();
@@ -122,7 +125,9 @@ export async function monitorDingtalkProvider(opts: MonitorDingtalkOpts = {}): P
     };
 
     const finalizeReject = (err: unknown) => {
-      if (stopped) return;
+      if (stopped) {
+        return;
+      }
       stopped = true;
       abortSignal?.removeEventListener("abort", handleAbort);
       cleanup();
@@ -154,7 +159,7 @@ export async function monitorDingtalkProvider(opts: MonitorDingtalkOpts = {}): P
       // Register TOPIC_ROBOT callback.
       client.registerCallbackListener(TOPIC_ROBOT, (res) => {
         const streamMessageId = res?.headers?.messageId;
-        
+
         // 立即显式 ACK，防止钉钉重发消息
         if (streamMessageId) {
           try {
@@ -163,7 +168,7 @@ export async function monitorDingtalkProvider(opts: MonitorDingtalkOpts = {}): P
             logger.error(`failed to ACK message ${streamMessageId}: ${String(ackErr)}`);
           }
         }
-        
+
         try {
           // Parse message payload.
           const rawMessage = JSON.parse(res.data) as DingtalkRawMessage;
@@ -179,8 +184,10 @@ export async function monitorDingtalkProvider(opts: MonitorDingtalkOpts = {}): P
           const contentTrimmed = content.trim();
           const senderName = rawMessage.senderNick ?? rawMessage.senderId;
           const textPreview = contentTrimmed.slice(0, 50);
-          
-          logger.info(`Inbound: from=${senderName} text="${textPreview}${contentTrimmed.length > 50 ? "..." : ""}"`);
+
+          logger.info(
+            `Inbound: from=${senderName} text="${textPreview}${contentTrimmed.length > 50 ? "..." : ""}"`,
+          );
           logger.debug(`streamId=${streamMessageId ?? "none"} convo=${rawMessage.conversationId}`);
 
           // 异步处理消息（ACK 已在前面发送）

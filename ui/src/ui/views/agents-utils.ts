@@ -39,16 +39,22 @@ export const TOOL_SECTIONS = [
     tools: [
       { id: "memory_search", label: "memory_search", description: "Semantic search" },
       { id: "memory_get", label: "memory_get", description: "Read memory files" },
-      { id: "active_memory_recall", label: "active_memory_recall", description: "Recall active memories" },
-      { id: "active_memory_save", label: "active_memory_save", description: "Save active memories" },
+      {
+        id: "active_memory_recall",
+        label: "active_memory_recall",
+        description: "Recall active memories",
+      },
+      {
+        id: "active_memory_save",
+        label: "active_memory_save",
+        description: "Save active memories",
+      },
     ],
   },
   {
     id: "tasks",
     label: "Tasks",
-    tools: [
-      { id: "tasks", label: "tasks", description: "Manage background tasks" },
-    ],
+    tools: [{ id: "tasks", label: "tasks", description: "Manage background tasks" }],
   },
   {
     id: "sessions",

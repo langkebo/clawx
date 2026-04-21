@@ -3,14 +3,12 @@ import {
   readExecApprovalsSnapshot,
   saveExecApprovals,
   type ExecApprovalsDefaults,
-  type ExecApprovalsFile,
   type ExecSecurity,
   type ExecAsk,
 } from "../infra/exec-approvals.js";
 import { defaultRuntime } from "../runtime.js";
 import { renderTable } from "../terminal/table.js";
 import { isRich, theme } from "../terminal/theme.js";
-import { callGatewayFromCli } from "./gateway-rpc.js";
 import { nodesCallOpts } from "./nodes-cli/rpc.js";
 import type { NodesRpcOpts } from "./nodes-cli/types.js";
 
@@ -53,10 +51,22 @@ function renderPolicy(
   const autoAllowSkills = defaults.autoAllowSkills === true ? "on" : "off";
 
   const defaultRows = [
-    { Field: "security", Value: highlight(security), Description: muted("Default exec security level") },
+    {
+      Field: "security",
+      Value: highlight(security),
+      Description: muted("Default exec security level"),
+    },
     { Field: "ask", Value: highlight(ask), Description: muted("When to prompt for approval") },
-    { Field: "askFallback", Value: highlight(askFallback), Description: muted("Fallback security when ask times out") },
-    { Field: "autoAllowSkills", Value: highlight(autoAllowSkills), Description: muted("Auto-allow skill commands") },
+    {
+      Field: "askFallback",
+      Value: highlight(askFallback),
+      Description: muted("Fallback security when ask times out"),
+    },
+    {
+      Field: "autoAllowSkills",
+      Value: highlight(autoAllowSkills),
+      Description: muted("Auto-allow skill commands"),
+    },
   ];
 
   defaultRuntime.log(heading("Default Exec Policy"));
@@ -77,7 +87,11 @@ function renderPolicy(
     const agentAsk = agent.ask ?? muted("(inherit)");
     const agentAskFallback = agent.askFallback ?? muted("(inherit)");
     const agentAutoAllowSkills =
-      agent.autoAllowSkills === undefined ? muted("(inherit)") : agent.autoAllowSkills ? "on" : "off";
+      agent.autoAllowSkills === undefined
+        ? muted("(inherit)")
+        : agent.autoAllowSkills
+          ? "on"
+          : "off";
 
     const agentRows = [
       { Field: "security", Value: String(agentSecurity) },
@@ -126,9 +140,7 @@ export function registerExecPolicyCli(program: Command) {
         const agent = file.agents?.[agentKey];
 
         if (opts.json) {
-          defaultRuntime.log(
-            JSON.stringify({ defaults, agentKey, agent: agent ?? null }, null, 2),
-          );
+          defaultRuntime.log(JSON.stringify({ defaults, agentKey, agent: agent ?? null }, null, 2));
           return;
         }
 
@@ -148,7 +160,9 @@ export function registerExecPolicyCli(program: Command) {
     .action(async (level: string, opts: ExecPolicyCliOpts) => {
       try {
         if (!isValidSecurity(level)) {
-          defaultRuntime.error(`Invalid security level: ${level}. Valid: ${VALID_SECURITY.join(", ")}`);
+          defaultRuntime.error(
+            `Invalid security level: ${level}. Valid: ${VALID_SECURITY.join(", ")}`,
+          );
           defaultRuntime.exit(1);
           return;
         }
@@ -220,7 +234,9 @@ export function registerExecPolicyCli(program: Command) {
     .action(async (level: string, opts: ExecPolicyCliOpts) => {
       try {
         if (!isValidSecurity(level)) {
-          defaultRuntime.error(`Invalid fallback level: ${level}. Valid: ${VALID_SECURITY.join(", ")}`);
+          defaultRuntime.error(
+            `Invalid fallback level: ${level}. Valid: ${VALID_SECURITY.join(", ")}`,
+          );
           defaultRuntime.exit(1);
           return;
         }
@@ -292,69 +308,80 @@ export function registerExecPolicyCli(program: Command) {
     .option("--ask <mode>", `Ask mode (${VALID_ASK.join("|")})`)
     .option("--fallback <level>", `Fallback security (${VALID_SECURITY.join("|")})`)
     .option("--auto-allow-skills <on|off>", "Auto-allow skills (on|off)")
-    .action(async (opts: ExecPolicyCliOpts & { security?: string; ask?: string; fallback?: string; autoAllowSkills?: string }) => {
-      try {
-        const snapshot = readExecApprovalsSnapshot();
-        const file = snapshot.file ?? { version: 1 };
-        file.version = 1;
-        const agentKey = resolveAgentKey(opts.agent);
+    .action(
+      async (
+        opts: ExecPolicyCliOpts & {
+          security?: string;
+          ask?: string;
+          fallback?: string;
+          autoAllowSkills?: string;
+        },
+      ) => {
+        try {
+          const snapshot = readExecApprovalsSnapshot();
+          const file = snapshot.file ?? { version: 1 };
+          file.version = 1;
+          const agentKey = resolveAgentKey(opts.agent);
 
-        const updates: Partial<ExecApprovalsDefaults> = {};
-        if (opts.security) {
-          if (!isValidSecurity(opts.security)) {
-            defaultRuntime.error(`Invalid security: ${opts.security}`);
-            defaultRuntime.exit(1);
-            return;
+          const updates: Partial<ExecApprovalsDefaults> = {};
+          if (opts.security) {
+            if (!isValidSecurity(opts.security)) {
+              defaultRuntime.error(`Invalid security: ${opts.security}`);
+              defaultRuntime.exit(1);
+              return;
+            }
+            updates.security = opts.security;
           }
-          updates.security = opts.security;
-        }
-        if (opts.ask) {
-          if (!isValidAsk(opts.ask)) {
-            defaultRuntime.error(`Invalid ask: ${opts.ask}`);
-            defaultRuntime.exit(1);
-            return;
+          if (opts.ask) {
+            if (!isValidAsk(opts.ask)) {
+              defaultRuntime.error(`Invalid ask: ${opts.ask}`);
+              defaultRuntime.exit(1);
+              return;
+            }
+            updates.ask = opts.ask;
           }
-          updates.ask = opts.ask;
-        }
-        if (opts.fallback) {
-          if (!isValidSecurity(opts.fallback)) {
-            defaultRuntime.error(`Invalid fallback: ${opts.fallback}`);
-            defaultRuntime.exit(1);
-            return;
+          if (opts.fallback) {
+            if (!isValidSecurity(opts.fallback)) {
+              defaultRuntime.error(`Invalid fallback: ${opts.fallback}`);
+              defaultRuntime.exit(1);
+              return;
+            }
+            updates.askFallback = opts.fallback;
           }
-          updates.askFallback = opts.fallback;
-        }
-        if (opts.autoAllowSkills) {
-          if (opts.autoAllowSkills !== "on" && opts.autoAllowSkills !== "off") {
-            defaultRuntime.error('auto-allow-skills must be "on" or "off"');
-            defaultRuntime.exit(1);
-            return;
+          if (opts.autoAllowSkills) {
+            if (opts.autoAllowSkills !== "on" && opts.autoAllowSkills !== "off") {
+              defaultRuntime.error('auto-allow-skills must be "on" or "off"');
+              defaultRuntime.exit(1);
+              return;
+            }
+            updates.autoAllowSkills = opts.autoAllowSkills === "on";
           }
-          updates.autoAllowSkills = opts.autoAllowSkills === "on";
-        }
 
-        if (Object.keys(updates).length === 0) {
-          defaultRuntime.error("No policy fields specified. Use --security, --ask, --fallback, or --auto-allow-skills.");
+          if (Object.keys(updates).length === 0) {
+            defaultRuntime.error(
+              "No policy fields specified. Use --security, --ask, --fallback, or --auto-allow-skills.",
+            );
+            defaultRuntime.exit(1);
+            return;
+          }
+
+          if (agentKey === "*") {
+            file.defaults = { ...file.defaults, ...updates };
+          } else {
+            const agents = { ...file.agents };
+            const agent = agents[agentKey] ?? {};
+            agents[agentKey] = { ...agent, ...updates };
+            file.agents = agents;
+          }
+
+          saveExecApprovals(file);
+          const fields = Object.keys(updates).join(", ");
+          defaultRuntime.log(`Updated policy fields: ${fields} (agent=${agentKey})`);
+        } catch (err) {
+          defaultRuntime.error(err instanceof Error ? err.message : String(err));
           defaultRuntime.exit(1);
-          return;
         }
-
-        if (agentKey === "*") {
-          file.defaults = { ...file.defaults, ...updates };
-        } else {
-          const agents = { ...file.agents };
-          const agent = agents[agentKey] ?? {};
-          agents[agentKey] = { ...agent, ...updates };
-          file.agents = agents;
-        }
-
-        saveExecApprovals(file);
-        const fields = Object.keys(updates).join(", ");
-        defaultRuntime.log(`Updated policy fields: ${fields} (agent=${agentKey})`);
-      } catch (err) {
-        defaultRuntime.error(err instanceof Error ? err.message : String(err));
-        defaultRuntime.exit(1);
-      }
-    });
+      },
+    );
   nodesCallOpts(setCmd);
 }

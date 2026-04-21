@@ -5,6 +5,7 @@ import { wrapWebContent } from "../../security/external-content.js";
 import { normalizeSecretInput } from "../../utils/normalize-secret-input.js";
 import type { AnyAgentTool } from "./common.js";
 import { jsonResult, readNumberParam, readStringParam } from "./common.js";
+import { searchWithSearXNG, type SearXNGResult } from "./searxng-search.js";
 import {
   CacheEntry,
   DEFAULT_CACHE_TTL_MINUTES,
@@ -17,8 +18,6 @@ import {
   withTimeout,
   writeCache,
 } from "./web-shared.js";
-
-import { searchWithSearXNG, type SearXNGConfig, type SearXNGResult } from "./searxng-search.js";
 
 const SEARCH_PROVIDERS = ["brave", "perplexity", "grok", "searxng"] as const;
 const DEFAULT_SEARCH_COUNT = 5;
@@ -755,7 +754,8 @@ export function createWebSearchTool(options?: {
         if (!searxngHost) {
           return jsonResult({
             error: "missing_searxng_host",
-            message: "SearXNG provider requires a host URL. Set tools.web.search.searxng.host in config.",
+            message:
+              "SearXNG provider requires a host URL. Set tools.web.search.searxng.host in config.",
           });
         }
         const params = args as Record<string, unknown>;

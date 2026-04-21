@@ -14,9 +14,9 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { parse as parseYaml } from "yaml";
 import type { Api, Model } from "@mariozechner/pi-ai";
 import type { ModelRegistry } from "@mariozechner/pi-coding-agent";
+import { parse as parseYaml } from "yaml";
 import { loadConfig } from "../config/config.js";
 import { log } from "./pi-embedded-runner/logger.ts";
 import type { PromptMode } from "./system-prompt.ts";
@@ -30,11 +30,13 @@ function readVikingConfig() {
     cacheTtlMs: typeof v?.cacheTtlMs === "number" ? v.cacheTtlMs : 5 * 60 * 1000,
     ruleEngine: typeof v?.ruleEngine === "boolean" ? v.ruleEngine : true,
     dynamicReroute: typeof v?.dynamicReroute === "boolean" ? v.dynamicReroute : true,
+    postCompactReroute: typeof v?.postCompactReroute === "boolean" ? v.postCompactReroute : true,
+    modelSwitching: typeof v?.modelSwitching === "boolean" ? v.modelSwitching : true,
+    parallelRouting: typeof v?.parallelRouting === "boolean" ? v.parallelRouting : true,
     feedbackLoop: typeof v?.feedbackLoop === "boolean" ? v.feedbackLoop : true,
     routingModel: typeof v?.routingModel === "string" ? v.routingModel : undefined,
   };
 }
-
 
 interface CacheEntry {
   result: VikingRouteResult;
@@ -96,7 +98,12 @@ export function invalidateCacheForTool(toolName: string): void {
   }
 }
 
-export function getRoutingCacheStats(): { size: number; maxSize: number; ttlMs: number; hitRate: number } {
+export function getRoutingCacheStats(): {
+  size: number;
+  maxSize: number;
+  ttlMs: number;
+  hitRate: number;
+} {
   return {
     size: routingCache.size,
     maxSize: readVikingConfig().cacheMaxSize,
@@ -111,8 +118,12 @@ let rerouteCount = 0;
 
 export function incrementRouteStats(opts: { ruleHit?: boolean; reroute?: boolean }): void {
   totalRoutes++;
-  if (opts.ruleHit) ruleHits++;
-  if (opts.reroute) rerouteCount++;
+  if (opts.ruleHit) {
+    ruleHits++;
+  }
+  if (opts.reroute) {
+    rerouteCount++;
+  }
 }
 
 export function getVikingFullStats(): {
@@ -137,6 +148,18 @@ export function getVikingRouteTag(): string | null {
     return null;
   }
   return "Viking";
+}
+
+export function getVikingOptimizations() {
+  const cfg = readVikingConfig();
+  return {
+    P0_dynamic_reroute: cfg.dynamicReroute,
+    P1_post_compact_reroute: cfg.postCompactReroute,
+    P2_model_switching: cfg.modelSwitching,
+    P3_parallel_routing: cfg.parallelRouting,
+    P4_rule_engine: cfg.ruleEngine,
+    P5_feedback_loop: cfg.feedbackLoop,
+  };
 }
 
 let cacheHits = 0;
@@ -181,35 +204,43 @@ const TOOL_PACKS: Record<string, { tools: string[]; description: string }> = {
     tools: ["write", "edit", "apply_patch", "grep", "find", "ls", "process"],
     description: "文件编辑、搜索、目录操作、后台进程管理",
   },
-  "web": {
+  web: {
     tools: ["web_search", "web_fetch"],
     description: "搜索互联网、抓取网页内容",
   },
-  "browser": {
+  browser: {
     tools: ["browser"],
     description: "控制浏览器打开和操作网页",
   },
-  "message": {
+  message: {
     tools: ["message"],
     description: "发送消息到钉钉、Telegram、Discord等通道",
   },
-  "media": {
+  media: {
     tools: ["canvas", "image", "image_generate", "pdf"],
     description: "图片分析/生成、画布展示、PDF提取",
   },
-  "infra": {
+  infra: {
     tools: ["cron", "gateway", "session_status"],
     description: "定时任务、系统管理、状态查询、提醒",
   },
-  "tasks": {
+  tasks: {
     tools: ["tasks", "active_memory_recall", "active_memory_save"],
     description: "任务管理、后台作业跟踪、主动记忆召回与保存",
   },
-  "agents": {
-    tools: ["agents_list", "sessions_list", "sessions_history", "sessions_send", "sessions_spawn", "sessions_yield", "subagents"],
+  agents: {
+    tools: [
+      "agents_list",
+      "sessions_list",
+      "sessions_history",
+      "sessions_send",
+      "sessions_spawn",
+      "sessions_yield",
+      "subagents",
+    ],
     description: "多Agent协作、子任务派发、会话管理、回合让出",
   },
-  "nodes": {
+  nodes: {
     tools: ["nodes"],
     description: "设备控制、摄像头、屏幕操作",
   },
@@ -248,7 +279,9 @@ function buildPackIndex(): string {
 }
 
 function buildSkillIndex(skills: SkillIndexEntry[]): string {
-  if (skills.length === 0) return "  (无)";
+  if (skills.length === 0) {
+    return "  (无)";
+  }
   return skills.map((s) => `  - ${s.name}`).join("\n");
 }
 
@@ -396,7 +429,12 @@ export function classifyProviderError(err: unknown): {
   if (msg.includes("billing") || msg.includes("quota") || msg.includes("insufficient")) {
     return { type: "billing", retryable: false, message: err.message };
   }
-  if (msg.includes("503") || msg.includes("timeout") || msg.includes("etimedout") || msg.includes("econnreset")) {
+  if (
+    msg.includes("503") ||
+    msg.includes("timeout") ||
+    msg.includes("etimedout") ||
+    msg.includes("econnreset")
+  ) {
     return { type: "transient", retryable: true, message: err.message };
   }
   return { type: "unknown", retryable: false, message: err.message };
@@ -411,13 +449,17 @@ function looksLikeEnvVarName(value: string): boolean {
 function resolveApiKeyFromEnv(hint?: string, providerName?: string): string {
   if (hint && looksLikeEnvVarName(hint)) {
     const val = process.env[hint]?.trim();
-    if (val && !looksLikeEnvVarName(val)) return val;
+    if (val && !looksLikeEnvVarName(val)) {
+      return val;
+    }
   }
   if (providerName) {
     const envVar = PROVIDER_ENV_MAP[providerName.toLowerCase()];
     if (envVar) {
       const val = process.env[envVar]?.trim();
-      if (val && !looksLikeEnvVarName(val)) return val;
+      if (val && !looksLikeEnvVarName(val)) {
+        return val;
+      }
     }
   }
   return "";
@@ -431,18 +473,20 @@ async function callRoutingModel(params: {
   user: string;
   maxTokens?: number;
 }): Promise<RoutingModelResult | null> {
-  let lastError: Error | null = null;
+  let __lastError: Error | null = null;
   let rateLimitCount = 0;
   let sameProviderRetryCount = 0;
   let lastProviderAttempted: string | null = null;
-  
+
   for (let attempt = 0; attempt < FAILOVER_CONFIG.maxRetries; attempt++) {
     try {
       const currentProvider = params.provider;
       if (currentProvider === lastProviderAttempted) {
         sameProviderRetryCount++;
         if (sameProviderRetryCount > FAILOVER_CONFIG.maxSameProviderRetries) {
-          log.info(`[viking] same provider retry limit (${FAILOVER_CONFIG.maxSameProviderRetries}) reached for ${currentProvider}, aborting`);
+          log.info(
+            `[viking] same provider retry limit (${FAILOVER_CONFIG.maxSameProviderRetries}) reached for ${currentProvider}, aborting`,
+          );
           return null;
         }
         if (sameProviderRetryCount > 1) {
@@ -455,18 +499,17 @@ async function callRoutingModel(params: {
       }
       lastProviderAttempted = currentProvider;
 
-      let apiKey = await params.modelRegistry.getApiKey(params.model) ?? "";
+      let apiKey = (await params.modelRegistry.getApiKey(params.model)) ?? "";
       if (!apiKey || looksLikeEnvVarName(apiKey)) {
-        const envKey = resolveApiKeyFromEnv(
-          apiKey || undefined,
-          params.provider,
-        );
-        if (envKey) apiKey = envKey;
+        const envKey = resolveApiKeyFromEnv(apiKey || undefined, params.provider);
+        if (envKey) {
+          apiKey = envKey;
+        }
       }
 
-      const baseUrl = (
-        typeof params.model.baseUrl === "string" ? params.model.baseUrl.trim() : ""
-      ) || "http://localhost:11434/v1";
+      const baseUrl =
+        (typeof params.model.baseUrl === "string" ? params.model.baseUrl.trim() : "") ||
+        "http://localhost:11434/v1";
       const modelId = params.model.id ?? params.model.name ?? "default";
 
       const url = `${baseUrl}/chat/completions`;
@@ -496,33 +539,33 @@ async function callRoutingModel(params: {
 
           if (!response.ok) {
             const errText = await response.text().catch(() => "");
-            
+
             if (response.status === 429) {
               rateLimitCount++;
               if (rateLimitCount <= FAILOVER_CONFIG.rateLimitedProfileRotations) {
                 const cooldown = Math.min(
                   FAILOVER_CONFIG.baseCooldownMs * Math.pow(2, attempt),
-                  FAILOVER_CONFIG.maxCooldownMs
+                  FAILOVER_CONFIG.maxCooldownMs,
                 );
                 log.info(`[viking] rate limited, waiting ${cooldown}ms before retry`);
                 await new Promise((resolve) => setTimeout(resolve, cooldown));
                 continue;
               }
             }
-            
+
             if (errText.includes("temperature")) {
               log.info(`[viking] temperature=${temp} not supported, retrying`);
               continue;
             }
-            
+
             log.info(`[viking] routing API error ${response.status}: ${errText.slice(0, 200)}`);
-            
+
             const classified = classifyProviderError(new Error(`${response.status}: ${errText}`));
             if (!classified.retryable) {
               return null;
             }
-            
-            lastError = new Error(errText);
+
+            __lastError = new Error(errText);
             break;
           }
 
@@ -533,19 +576,21 @@ async function callRoutingModel(params: {
           break;
         } catch (err) {
           log.info(`[viking] routing call failed (temp=${temp}): ${String(err)}`);
-          lastError = err as Error;
-          
+          __lastError = err as Error;
+
           if (isRetryable(err)) {
             const cooldown = Math.min(
               FAILOVER_CONFIG.baseCooldownMs * Math.pow(2, attempt),
-              FAILOVER_CONFIG.maxCooldownMs
+              FAILOVER_CONFIG.maxCooldownMs,
             );
             log.info(`[viking] retryable error, waiting ${cooldown}ms before retry`);
             await new Promise((resolve) => setTimeout(resolve, cooldown));
             continue;
           }
-          
-          if (temp === 1) return null;
+
+          if (temp === 1) {
+            return null;
+          }
         }
       }
 
@@ -572,24 +617,28 @@ async function callRoutingModel(params: {
         packs: Array.isArray(parsed.packs) ? parsed.packs : [],
         files: Array.isArray(parsed.files) ? parsed.files : [],
         needsL1: parsed.needsL1 === true,
-        l1Dates: Array.isArray(parsed.l1Dates) ? parsed.l1Dates.filter((d: unknown) => typeof d === "string") : [],
+        l1Dates: Array.isArray(parsed.l1Dates)
+          ? parsed.l1Dates.filter((d: unknown) => typeof d === "string")
+          : [],
         needsL2: parsed.needsL2 === true,
       };
     } catch (err) {
-      lastError = err as Error;
+      __lastError = err as Error;
       log.info(`[viking] routing attempt ${attempt + 1} failed: ${String(err)}`);
-      
+
       if (isRetryable(err)) {
         const cooldown = Math.min(
           FAILOVER_CONFIG.baseCooldownMs * Math.pow(2, attempt),
-          FAILOVER_CONFIG.maxCooldownMs
+          FAILOVER_CONFIG.maxCooldownMs,
         );
         await new Promise((resolve) => setTimeout(resolve, cooldown));
       }
     }
   }
-  
-  log.info(`[viking] routing call failed after ${FAILOVER_CONFIG.maxRetries} attempts, fallback to full`);
+
+  log.info(
+    `[viking] routing call failed after ${FAILOVER_CONFIG.maxRetries} attempts, fallback to full`,
+  );
   return null;
 }
 
@@ -683,7 +732,9 @@ export async function vikingRoute(params: {
       if (altModel) {
         routingModel = altModel;
         routingProvider = complexity.preferredProvider;
-        log.info(`[viking] P2: using ${complexity.complexity} model ${complexity.preferredModel} via ${complexity.preferredProvider}`);
+        log.info(
+          `[viking] P2: using ${complexity.complexity} model ${complexity.preferredModel} via ${complexity.preferredProvider}`,
+        );
       }
     } catch {
       log.info(`[viking] P2: fallback to default model (preferred model not found)`);
@@ -716,10 +767,14 @@ export async function vikingRoute(params: {
 
   const validTools = new Set<string>();
   for (const t of expandedTools) {
-    if (allToolNames.has(t)) validTools.add(t);
+    if (allToolNames.has(t)) {
+      validTools.add(t);
+    }
   }
   for (const core of CORE_TOOLS) {
-    if (allToolNames.has(core)) validTools.add(core);
+    if (allToolNames.has(core)) {
+      validTools.add(core);
+    }
   }
 
   const selectedFiles = new Set(result.files.filter((f) => allFileNames.has(f)));
@@ -746,8 +801,8 @@ export async function vikingRoute(params: {
 
   log.info(
     `[viking] routed: packs=[${result.packs.join(",")}] tools=[${[...validTools].join(",")}] ` +
-    `files=[${[...selectedFiles].join(",")}] layer=${promptLayer} ` +
-    `needsL1=${result.needsL1} l1Dates=[${(result.l1Dates ?? []).join(",")}] needsL2=${result.needsL2}`,
+      `files=[${[...selectedFiles].join(",")}] layer=${promptLayer} ` +
+      `needsL1=${result.needsL1} l1Dates=[${(result.l1Dates ?? []).join(",")}] needsL2=${result.needsL2}`,
   );
 
   return {
@@ -767,15 +822,13 @@ export async function vikingRoute(params: {
 // ========================
 
 export function buildSkillNamesOnlyPrompt(skills: SkillIndexEntry[]): string {
-  if (skills.length === 0) return "";
+  if (skills.length === 0) {
+    return "";
+  }
   const lines = skills.map((s) =>
-    s.description ? `- ${s.name}: ${s.description}` : `- ${s.name}`
+    s.description ? `- ${s.name}: ${s.description}` : `- ${s.name}`,
   );
-  return [
-    "## Skills",
-    ...lines,
-    `Use \`read\` on the skill's SKILL.md when needed.`,
-  ].join("\n");
+  return ["## Skills", ...lines, `Use \`read\` on the skill's SKILL.md when needed.`].join("\n");
 }
 
 // ========================
@@ -880,13 +933,17 @@ export async function vikingRouteWithFeedback(params: {
   modelRegistry: ModelRegistry;
   provider: string;
 }): Promise<VikingRouteResult | null> {
-  if (!readVikingConfig().enabled) return null;
+  if (!readVikingConfig().enabled) {
+    return null;
+  }
 
   const fb = params.feedback;
 
   if (fb.executionResult === "tool_missing" && fb.missingToolName) {
     const tool = params.allTools.find((t) => t.name === fb.missingToolName);
-    if (!tool) return null;
+    if (!tool) {
+      return null;
+    }
 
     const packName = reverseLookupPack(fb.missingToolName);
     const addTools = new Set(fb.routeResult.tools);
@@ -908,8 +965,7 @@ export async function vikingRouteWithFeedback(params: {
     );
 
     const toolCount = addTools.size;
-    const promptLayer: PromptMode =
-      toolCount <= 2 ? "L0" : toolCount <= 12 ? "L1" : "full";
+    const promptLayer: PromptMode = toolCount <= 2 ? "L0" : toolCount <= 12 ? "L1" : "full";
 
     return {
       tools: addTools,
@@ -949,7 +1005,8 @@ export interface RoutingModelChoice {
 export function classifyPromptComplexity(prompt: string, timeline?: string): RoutingModelChoice {
   const trimmed = prompt.trim();
 
-  const simplePatterns = /^(你好|hi|hello|谢谢|好的|是|否|ok|yes|no|嗯|对|行|拜|再见|bye)[!！。.？?~～]*$/i;
+  const simplePatterns =
+    /^(你好|hi|hello|谢谢|好的|是|否|ok|yes|no|嗯|对|行|拜|再见|bye)[!！。.？?~～]*$/i;
   if (simplePatterns.test(trimmed)) {
     return {
       maxTokens: 50,
@@ -959,7 +1016,8 @@ export function classifyPromptComplexity(prompt: string, timeline?: string): Rou
     };
   }
 
-  const complexKeywords = /重构|架构|迁移|安全|优化|分析|对比|设计|review|调试|排查|修复|部署|监控|测试|性能|集成|升级|合并/i;
+  const complexKeywords =
+    /重构|架构|迁移|安全|优化|分析|对比|设计|review|调试|排查|修复|部署|监控|测试|性能|集成|升级|合并/i;
   if (complexKeywords.test(trimmed) || (timeline && timeline.length > 2000)) {
     return {
       maxTokens: 300,
@@ -1022,7 +1080,9 @@ export async function vikingParallelRoute(params: {
   const worker = async (): Promise<void> => {
     while (queue.length > 0) {
       const task = queue.shift();
-      if (!task) break;
+      if (!task) {
+        break;
+      }
 
       try {
         const ruleResult = tryRuleBasedRoute({
@@ -1032,15 +1092,17 @@ export async function vikingParallelRoute(params: {
           workspaceDir: params.workspaceDir,
         });
 
-        const route = ruleResult ?? await vikingRoute({
-          prompt: task.prompt,
-          tools: params.tools,
-          fileNames: task.fileNames ?? [],
-          skills: task.skills ?? [],
-          model: params.model,
-          modelRegistry: params.modelRegistry,
-          provider: params.provider,
-        });
+        const route =
+          ruleResult ??
+          (await vikingRoute({
+            prompt: task.prompt,
+            tools: params.tools,
+            fileNames: task.fileNames ?? [],
+            skills: task.skills ?? [],
+            model: params.model,
+            modelRegistry: params.modelRegistry,
+            provider: params.provider,
+          }));
 
         results.push({ id: task.id, route });
       } catch (err) {
@@ -1062,7 +1124,9 @@ export async function vikingParallelRoute(params: {
     }
   };
 
-  const workers = Array.from({ length: Math.min(concurrency, params.tasks.length) }, () => worker());
+  const workers = Array.from({ length: Math.min(concurrency, params.tasks.length) }, () =>
+    worker(),
+  );
   await Promise.all(workers);
 
   log.info(`[viking] parallel route: ${results.length}/${params.tasks.length} tasks completed`);
@@ -1076,7 +1140,7 @@ export interface VikingRule {
     promptMaxLength?: number;
     noFileContext?: boolean;
   };
-  then: {
+  apply: {
     packs: string[];
     promptMode: PromptMode;
   };
@@ -1085,12 +1149,14 @@ export interface VikingRule {
 const DEFAULT_RULES: VikingRule[] = [
   {
     when: { promptMaxLength: 50, noFileContext: true },
-    then: { packs: [], promptMode: "L0" },
+    apply: { packs: [], promptMode: "L0" },
   },
 ];
 
 function loadRulesFromDir(rulesDir: string): VikingRule[] {
-  if (!existsSync(rulesDir)) return [];
+  if (!existsSync(rulesDir)) {
+    return [];
+  }
   const rules: VikingRule[] = [];
   try {
     const entries = readdirSync(rulesDir).filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"));
@@ -1100,11 +1166,11 @@ function loadRulesFromDir(rulesDir: string): VikingRule[] {
         const parsed = parseYaml(content);
         if (Array.isArray(parsed)) {
           for (const item of parsed) {
-            if (item?.when && item?.then) {
+            if (item?.when && item?.apply) {
               rules.push(item as VikingRule);
             }
           }
-        } else if (parsed?.when && parsed?.then) {
+        } else if (parsed?.when && parsed?.apply) {
           rules.push(parsed as VikingRule);
         }
       } catch (err) {
@@ -1124,7 +1190,9 @@ let cachedWorkspaceRules: VikingRule[] | null = null;
 let cachedWorkspaceRulesDir: string | null = null;
 
 function getWorkspaceRules(workspaceDir?: string): VikingRule[] {
-  if (!workspaceDir) return [];
+  if (!workspaceDir) {
+    return [];
+  }
   const rulesDir = join(workspaceDir, ".viking", "rules");
   if (rulesDir === cachedWorkspaceRulesDir && cachedWorkspaceRules !== null) {
     return cachedWorkspaceRules;
@@ -1134,15 +1202,22 @@ function getWorkspaceRules(workspaceDir?: string): VikingRule[] {
   return cachedWorkspaceRules;
 }
 
-function matchRule(rules: VikingRule[], context: {
-  fileNames: string[];
-  promptLength: number;
-  hasFileContext: boolean;
-}): VikingRule | null {
+function matchRule(
+  rules: VikingRule[],
+  context: {
+    fileNames: string[];
+    promptLength: number;
+    hasFileContext: boolean;
+  },
+): VikingRule | null {
   for (const rule of rules) {
     const w = rule.when;
-    if (w.promptMaxLength !== undefined && context.promptLength > w.promptMaxLength) continue;
-    if (w.noFileContext === true && context.hasFileContext) continue;
+    if (w.promptMaxLength !== undefined && context.promptLength > w.promptMaxLength) {
+      continue;
+    }
+    if (w.noFileContext === true && context.hasFileContext) {
+      continue;
+    }
     if (w.filePatterns && w.filePatterns.length > 0) {
       const matches = context.fileNames.some((fn) =>
         w.filePatterns!.some((pat) => {
@@ -1150,7 +1225,9 @@ function matchRule(rules: VikingRule[], context: {
           return regex.test(fn);
         }),
       );
-      if (!matches) continue;
+      if (!matches) {
+        continue;
+      }
     }
     return rule;
   }
@@ -1166,15 +1243,19 @@ export function tryRuleBasedRoute(context: {
   const workspaceRules = getWorkspaceRules(context.workspaceDir);
   const allRules = [...workspaceRules, ...DEFAULT_RULES];
   const rule = matchRule(allRules, context);
-  if (!rule) return null;
+  if (!rule) {
+    return null;
+  }
 
-  const tools = expandPacks(rule.then.packs);
-  log.info(`[viking] rule-based route matched: packs=[${rule.then.packs.join(",")}] mode=${rule.then.promptMode}`);
+  const tools = expandPacks(rule.apply.packs);
+  log.info(
+    `[viking] rule-based route matched: packs=[${rule.apply.packs.join(",")}] mode=${rule.apply.promptMode}`,
+  );
 
   return {
     tools,
     files: new Set<string>(),
-    promptLayer: rule.then.promptMode,
+    promptLayer: rule.apply.promptMode,
     skillsMode: "names",
     skipped: false,
     needsL1: false,

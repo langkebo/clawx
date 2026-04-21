@@ -656,6 +656,9 @@ export const OpenClawSchema = z
         cacheTtlMs: z.number().int().positive().optional(),
         ruleEngine: z.boolean().optional(),
         dynamicReroute: z.boolean().optional(),
+        postCompactReroute: z.boolean().optional(),
+        modelSwitching: z.boolean().optional(),
+        parallelRouting: z.boolean().optional(),
         feedbackLoop: z.boolean().optional(),
         routingModel: z.string().optional(),
       })

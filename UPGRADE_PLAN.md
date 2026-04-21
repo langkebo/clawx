@@ -7,13 +7,13 @@
 
 ## 一、升级概览
 
-| 阶段 | 内容 | 优先级 | 预计时间 |
-|------|------|--------|----------|
-| 阶段一 | 安全更新 | 🔴 高 | 1-2 天 |
-| 阶段二 | Plugin SDK 更新 | 🟡 高 | 2-3 天 |
-| 阶段三 | Viking 路由器增强 | 🟡 高 | 3-5 天 |
-| 阶段四 | 新增功能集成 | 🟢 中 | 5-7 天 |
-| 阶段五 | 验证和测试 | 🔴 高 | 1-2 天 |
+| 阶段   | 内容              | 优先级 | 预计时间 |
+| ------ | ----------------- | ------ | -------- |
+| 阶段一 | 安全更新          | 🔴 高  | 1-2 天   |
+| 阶段二 | Plugin SDK 更新   | 🟡 高  | 2-3 天   |
+| 阶段三 | Viking 路由器增强 | 🟡 高  | 3-5 天   |
+| 阶段四 | 新增功能集成      | 🟢 中  | 5-7 天   |
+| 阶段五 | 验证和测试        | 🔴 高  | 1-2 天   |
 
 ---
 
@@ -28,6 +28,7 @@
 **修复位置**: `src/security/exec-approval.ts` (新建)
 
 **修复内容**:
+
 ```typescript
 // 新增 Unicode 过滤函数
 const ZERO_WIDTH_CHARS = /[\u200B-\u200D\uFEFF\u200E\u200F]/g;
@@ -41,12 +42,12 @@ export function escapeInvisibleUnicode(text: string): string {
 
 export function normalizeForSecurityCheck(text: string): string {
   // 移除零宽字符
-  let normalized = text.replace(ZERO_WIDTH_CHARS, '');
+  let normalized = text.replace(ZERO_WIDTH_CHARS, "");
   // 转换全角字符为半角
   normalized = normalized.replace(FULLWIDTH_CHARS, (char) => {
     const code = char.charCodeAt(0);
-    if (code >= 0xFF01 && code <= 0xFF5E) {
-      return String.fromCharCode(code - 0xFEE0);
+    if (code >= 0xff01 && code <= 0xff5e) {
+      return String.fromCharCode(code - 0xfee0);
     }
     return char;
   });
@@ -61,6 +62,7 @@ export function normalizeForSecurityCheck(text: string): string {
 **修复位置**: `src/agents/bash-tools.exec-runtime.ts`
 
 **修复内容**:
+
 ```typescript
 // 扩展禁止列表
 const FORBIDDEN_ENV_VARS = new Set([
@@ -93,6 +95,7 @@ export function sanitizeExecEnv(env: Record<string, string>): Record<string, str
 **修复位置**: `src/infra/device-pairing.ts`
 
 **修复内容**:
+
 ```typescript
 export interface DeviceTokenScope {
   deviceId: string;
@@ -101,10 +104,7 @@ export interface DeviceTokenScope {
   expiresAt: number;
 }
 
-export function validateDeviceTokenScope(
-  token: DeviceToken,
-  requestedScope: string[]
-): boolean {
+export function validateDeviceTokenScope(token: DeviceToken, requestedScope: string[]): boolean {
   const approvedSet = new Set(token.approvedScopes);
   for (const scope of requestedScope) {
     if (!approvedSet.has(scope)) {
@@ -122,26 +122,27 @@ export function validateDeviceTokenScope(
 **修复位置**: `src/gateway/server.ts`
 
 **修复内容**:
+
 ```typescript
 const PREAUTH_MAX_FRAME_SIZE = 64 * 1024; // 64KB
 const PREAUTH_HANDSHAKE_TIMEOUT = 10_000; // 10秒
 
 export function installPreauthGuards(ws: WebSocket): void {
-  ws.on('message', (data, isBinary) => {
+  ws.on("message", (data, isBinary) => {
     if (!ws.isAuthenticated && data.length > PREAUTH_MAX_FRAME_SIZE) {
-      ws.close(1009, 'Frame too large');
+      ws.close(1009, "Frame too large");
       return;
     }
   });
-  
+
   // 设置认证超时
   const timeout = setTimeout(() => {
     if (!ws.isAuthenticated) {
-      ws.close(1008, 'Authentication timeout');
+      ws.close(1008, "Authentication timeout");
     }
   }, PREAUTH_HANDSHAKE_TIMEOUT);
-  
-  ws.once('authenticated', () => clearTimeout(timeout));
+
+  ws.once("authenticated", () => clearTimeout(timeout));
 }
 ```
 
@@ -159,16 +160,17 @@ export function installPreauthGuards(ws: WebSocket): void {
 
 ### 3.1 需要检查的废弃 API
 
-| 废弃 API | 替代方案 | 影响文件 |
-|----------|----------|----------|
-| `provider compat` 子路径 | `openclaw/plugin-sdk/*` | viking-router.ts |
-| 旧 bundled provider setup | 新 plugin runtime | 检查依赖 |
+| 废弃 API                  | 替代方案                | 影响文件         |
+| ------------------------- | ----------------------- | ---------------- |
+| `provider compat` 子路径  | `openclaw/plugin-sdk/*` | viking-router.ts |
+| 旧 bundled provider setup | 新 plugin runtime       | 检查依赖         |
 
 ### 3.2 Viking 路由器兼容性检查
 
 **检查文件**: `src/agents/viking-router.ts`
 
 **需要确认的内容**:
+
 1. Provider API 调用是否使用新接口
 2. Model Registry 调用是否兼容
 3. API Key 解析逻辑是否需要更新
@@ -221,47 +223,46 @@ const DEFAULT_FAILOVER_CONFIG: FailoverConfig = {
 
 async function callRoutingModelWithFailover(
   params: RoutingParams,
-  config: FailoverConfig = DEFAULT_FAILOVER_CONFIG
+  config: FailoverConfig = DEFAULT_FAILOVER_CONFIG,
 ): Promise<RoutingResult | null> {
   let lastError: Error | null = null;
-  
+
   for (let attempt = 0; attempt < config.maxRetries; attempt++) {
     try {
       const result = await callRoutingModel(params);
       return result;
     } catch (err) {
       lastError = err as Error;
-      
+
       if (isRateLimited(err)) {
         const cooldown = Math.min(
           config.baseCooldownMs * Math.pow(2, attempt),
-          config.maxCooldownMs
+          config.maxCooldownMs,
         );
         await sleep(cooldown);
         continue;
       }
-      
+
       if (!isRetryable(err)) {
         break;
       }
     }
   }
-  
+
   return null;
 }
 
 function isRateLimited(err: unknown): boolean {
   if (err instanceof Error) {
-    return err.message.includes('429') || 
-           err.message.includes('rate limit');
+    return err.message.includes("429") || err.message.includes("rate limit");
   }
   return false;
 }
 
 function isRetryable(err: unknown): boolean {
   if (err instanceof Error) {
-    const retryableCodes = ['429', '503', '502', 'ETIMEDOUT', 'ECONNRESET'];
-    return retryableCodes.some(code => err.message.includes(code));
+    const retryableCodes = ["429", "503", "502", "ETIMEDOUT", "ECONNRESET"];
+    return retryableCodes.some((code) => err.message.includes(code));
   }
   return false;
 }
@@ -281,17 +282,17 @@ interface VikingRouterConfig {
 
 export async function vikingRoute(
   params: RoutingParams,
-  config?: VikingRouterConfig
+  config?: VikingRouterConfig,
 ): Promise<VikingRouteResult> {
   // 应用默认参数
   const effectiveParams = {
     ...config?.defaults?.params,
     ...params,
   };
-  
+
   // 使用配置的压缩模型
   const compactionModel = config?.defaults?.compaction?.model;
-  
+
   // ... 路由逻辑
 }
 ```
@@ -299,7 +300,7 @@ export async function vikingRoute(
 ### 4.3 添加路由缓存
 
 ```typescript
-import { LRUCache } from 'lru-cache';
+import { LRUCache } from "lru-cache";
 
 const routingCache = new LRUCache<string, VikingRouteResult>({
   max: 1000,
@@ -307,29 +308,32 @@ const routingCache = new LRUCache<string, VikingRouteResult>({
 });
 
 function getCacheKey(prompt: string, tools: string[]): string {
-  const hash = createHash('md5');
+  const hash = createHash("md5");
   hash.update(prompt);
-  hash.update(tools.sort().join(','));
-  return hash.digest('hex');
+  hash.update(tools.sort().join(","));
+  return hash.digest("hex");
 }
 
 export async function vikingRoute(
   params: RoutingParams,
-  config?: VikingRouterConfig
+  config?: VikingRouterConfig,
 ): Promise<VikingRouteResult> {
   // 检查缓存
-  const cacheKey = getCacheKey(params.prompt, params.tools.map(t => t.name));
+  const cacheKey = getCacheKey(
+    params.prompt,
+    params.tools.map((t) => t.name),
+  );
   const cached = routingCache.get(cacheKey);
   if (cached) {
     return cached;
   }
-  
+
   // 执行路由
   const result = await doRouting(params, config);
-  
+
   // 缓存结果
   routingCache.set(cacheKey, result);
-  
+
   return result;
 }
 ```
@@ -350,16 +354,16 @@ export interface SearXNGConfig {
 
 export async function searchWithSearXNG(
   query: string,
-  config: SearXNGConfig
+  config: SearXNGConfig,
 ): Promise<SearchResult[]> {
-  const url = new URL('/search', config.host);
-  url.searchParams.set('q', query);
-  url.searchParams.set('format', 'json');
-  
+  const url = new URL("/search", config.host);
+  url.searchParams.set("q", query);
+  url.searchParams.set("format", "json");
+
   const response = await fetch(url.toString(), {
     signal: AbortSignal.timeout(config.timeout ?? 30000),
   });
-  
+
   const data = await response.json();
   return data.results ?? [];
 }
@@ -371,22 +375,18 @@ export async function searchWithSearXNG(
 
 ```typescript
 // 使用 SQLite 后台任务系统
-export async function scheduleBackgroundRouting(
-  params: RoutingParams
-): Promise<string> {
+export async function scheduleBackgroundRouting(params: RoutingParams): Promise<string> {
   const taskId = await taskRegistry.create({
-    type: 'viking-routing',
+    type: "viking-routing",
     payload: params,
     scheduledAt: Date.now(),
   });
   return taskId;
 }
 
-export async function getRoutingTaskResult(
-  taskId: string
-): Promise<VikingRouteResult | null> {
+export async function getRoutingTaskResult(taskId: string): Promise<VikingRouteResult | null> {
   const task = await taskRegistry.get(taskId);
-  if (task?.status === 'completed') {
+  if (task?.status === "completed") {
     return task.result as VikingRouteResult;
   }
   return null;
@@ -398,33 +398,33 @@ export async function getRoutingTaskResult(
 ```typescript
 // 统一错误分类
 export function classifyProviderError(err: unknown): {
-  type: 'rate_limit' | 'auth' | 'format' | 'billing' | 'transient' | 'unknown';
+  type: "rate_limit" | "auth" | "format" | "billing" | "transient" | "unknown";
   retryable: boolean;
   message: string;
 } {
   if (!(err instanceof Error)) {
-    return { type: 'unknown', retryable: false, message: String(err) };
+    return { type: "unknown", retryable: false, message: String(err) };
   }
-  
+
   const msg = err.message.toLowerCase();
-  
-  if (msg.includes('429') || msg.includes('rate limit')) {
-    return { type: 'rate_limit', retryable: true, message: err.message };
+
+  if (msg.includes("429") || msg.includes("rate limit")) {
+    return { type: "rate_limit", retryable: true, message: err.message };
   }
-  if (msg.includes('401') || msg.includes('unauthorized')) {
-    return { type: 'auth', retryable: false, message: err.message };
+  if (msg.includes("401") || msg.includes("unauthorized")) {
+    return { type: "auth", retryable: false, message: err.message };
   }
-  if (msg.includes('422') || msg.includes('invalid')) {
-    return { type: 'format', retryable: false, message: err.message };
+  if (msg.includes("422") || msg.includes("invalid")) {
+    return { type: "format", retryable: false, message: err.message };
   }
-  if (msg.includes('billing') || msg.includes('quota')) {
-    return { type: 'billing', retryable: false, message: err.message };
+  if (msg.includes("billing") || msg.includes("quota")) {
+    return { type: "billing", retryable: false, message: err.message };
   }
-  if (msg.includes('503') || msg.includes('timeout') || msg.includes('etimedout')) {
-    return { type: 'transient', retryable: true, message: err.message };
+  if (msg.includes("503") || msg.includes("timeout") || msg.includes("etimedout")) {
+    return { type: "transient", retryable: true, message: err.message };
   }
-  
-  return { type: 'unknown', retryable: false, message: err.message };
+
+  return { type: "unknown", retryable: false, message: err.message };
 }
 ```
 
@@ -468,18 +468,21 @@ pnpm openclaw agent --message "测试路由" --verbose
 ### 6.3 已完成的优化项目
 
 #### 安全更新
+
 - [x] Unicode 欺骗防护 (`src/security/exec-approval.ts`)
 - [x] 环境变量清理 (`src/agents/bash-tools.exec-runtime.ts`)
 - [x] 设备 Token 范围限制 (`src/security/device-token-scope.ts`)
 - [x] WebSocket 预认证加固 (`src/security/ws-preauth.ts`)
 
 #### Viking 路由器增强
+
 - [x] 路由缓存系统 (5分钟 TTL)
 - [x] Failover 改进 (指数退避重试)
 - [x] 错误分类系统 (6 种类型)
 - [x] 新增 Provider 支持 (6 个)
 
 #### 新增功能
+
 - [x] SearXNG 搜索支持 (`src/agents/tools/searxng-search.ts`)
 
 ---
@@ -506,13 +509,13 @@ pnpm openclaw gateway restart
 
 ## 八、时间表
 
-| 阶段 | 开始日期 | 结束日期 | 状态 |
-|------|----------|----------|------|
-| 阶段一：安全更新 | Day 1 | Day 2 | ✅ 已完成 |
-| 阶段二：Plugin SDK | Day 3 | Day 5 | ✅ 已完成 |
-| 阶段三：Viking 增强 | Day 6 | Day 10 | ✅ 已完成 |
-| 阶段四：新功能 | Day 11 | Day 17 | ✅ 已完成 |
-| 阶段五：验证测试 | Day 18 | Day 19 | 待验证 |
+| 阶段                | 开始日期 | 结束日期 | 状态      |
+| ------------------- | -------- | -------- | --------- |
+| 阶段一：安全更新    | Day 1    | Day 2    | ✅ 已完成 |
+| 阶段二：Plugin SDK  | Day 3    | Day 5    | ✅ 已完成 |
+| 阶段三：Viking 增强 | Day 6    | Day 10   | ✅ 已完成 |
+| 阶段四：新功能      | Day 11   | Day 17   | ✅ 已完成 |
+| 阶段五：验证测试    | Day 18   | Day 19   | 待验证    |
 
 ---
 

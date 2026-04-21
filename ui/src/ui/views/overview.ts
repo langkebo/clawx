@@ -310,9 +310,11 @@ export function renderOverview(props: OverviewProps) {
         </div>
       </div>
       <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
-        ${Object.entries(props.vikingStats.optimizations).map(([key, val]) => html`
+        ${Object.entries(props.vikingStats.optimizations).map(
+          ([key, val]) => html`
           <span class="chip ${val ? "ok" : "muted"}" title="${key}">${key.replace(/_/g, " ")}</span>
-        `)}
+        `,
+        )}
       </div>
     </section>
     `
