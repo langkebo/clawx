@@ -276,7 +276,10 @@ export function renderOverview(props: OverviewProps) {
     </section>
 
     ${
-      props.vikingStats
+      props.vikingStats &&
+      props.vikingStats.cache &&
+      props.vikingStats.routes &&
+      props.vikingStats.optimizations
         ? html`
     <section class="card" style="margin-top: 18px;">
       <div class="card-title">${t("overview.viking.title")}</div>

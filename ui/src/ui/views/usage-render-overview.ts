@@ -547,7 +547,7 @@ function renderUsageInsights(
 }
 
 function renderVikingRoutingCard(vikingStats: VikingStatsSnapshot | null) {
-  if (!vikingStats || !vikingStats.enabled) {
+  if (!vikingStats || !vikingStats.enabled || !vikingStats.cache || !vikingStats.routes) {
     return renderInsightList(t("usage.vikingRouting"), [], t("usage.vikingRoutingDisabled"));
   }
   const items = [

@@ -427,7 +427,11 @@ export async function loadVikingStats(host: OpenClawApp) {
   }
   try {
     const stats = await host.client.request<VikingStatsSnapshot>("viking.stats");
-    host.vikingStats = stats;
+    if (stats && stats.cache && stats.routes && stats.optimizations) {
+      host.vikingStats = stats;
+    } else {
+      host.vikingStats = null;
+    }
   } catch {
     host.vikingStats = null;
   }
