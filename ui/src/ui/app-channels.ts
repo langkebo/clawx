@@ -10,29 +10,49 @@ import type { NostrProfile } from "./types.ts";
 import { createNostrProfileFormState } from "./views/channels.nostr-profile-form.ts";
 
 export async function handleWhatsAppStart(host: OpenClawApp, force: boolean) {
-  await startWhatsAppLogin(host, force);
-  await loadChannels(host, true);
+  try {
+    await startWhatsAppLogin(host, force);
+    await loadChannels(host, true);
+  } catch (err) {
+    console.error("[openclaw] WhatsApp start failed:", err);
+  }
 }
 
 export async function handleWhatsAppWait(host: OpenClawApp) {
-  await waitWhatsAppLogin(host);
-  await loadChannels(host, true);
+  try {
+    await waitWhatsAppLogin(host);
+    await loadChannels(host, true);
+  } catch (err) {
+    console.error("[openclaw] WhatsApp wait failed:", err);
+  }
 }
 
 export async function handleWhatsAppLogout(host: OpenClawApp) {
-  await logoutWhatsApp(host);
-  await loadChannels(host, true);
+  try {
+    await logoutWhatsApp(host);
+    await loadChannels(host, true);
+  } catch (err) {
+    console.error("[openclaw] WhatsApp logout failed:", err);
+  }
 }
 
 export async function handleChannelConfigSave(host: OpenClawApp) {
-  await saveConfig(host);
-  await loadConfig(host);
-  await loadChannels(host, true);
+  try {
+    await saveConfig(host);
+    await loadConfig(host);
+    await loadChannels(host, true);
+  } catch (err) {
+    console.error("[openclaw] channel config save failed:", err);
+  }
 }
 
 export async function handleChannelConfigReload(host: OpenClawApp) {
-  await loadConfig(host);
-  await loadChannels(host, true);
+  try {
+    await loadConfig(host);
+    await loadChannels(host, true);
+  } catch (err) {
+    console.error("[openclaw] channel config reload failed:", err);
+  }
 }
 
 function parseValidationErrors(details: unknown): Record<string, string> {

@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -38,7 +39,7 @@ function getTaskFilePath(taskId: string): string {
 
 function generateTaskId(): string {
   const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).slice(2, 8);
+  const random = randomBytes(4).toString("hex");
   return `task_${timestamp}_${random}`;
 }
 
@@ -46,7 +47,11 @@ function ensureTasksDir(): string {
   const dir = getTasksDir();
   try {
     fsSync.mkdirSync(dir, { recursive: true });
-  } catch {}
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EEXIST") {
+      log.warn(`failed to create tasks dir ${dir}: ${String(err)}`);
+    }
+  }
   return dir;
 }
 
@@ -80,7 +85,12 @@ export async function createTask(params: {
 export async function getTask(taskId: string): Promise<Task | null> {
   try {
     const content = await fs.readFile(getTaskFilePath(taskId), "utf-8");
-    return JSON.parse(content) as Task;
+    const parsed = JSON.parse(content);
+    if (!parsed || typeof parsed !== "object" || typeof parsed.id !== "string") {
+      log.warn(`task file corrupted, skipping: ${taskId}`);
+      return null;
+    }
+    return parsed as Task;
   } catch {
     return null;
   }
@@ -145,6 +155,9 @@ export async function listTasks(options?: {
     try {
       const content = await fs.readFile(path.join(getTasksDir(), file), "utf-8");
       const task = JSON.parse(content) as Task;
+      if (!task || typeof task !== "object" || typeof task.id !== "string") {
+        continue;
+      }
       if (options?.status && task.status !== options.status) {
         continue;
       }
@@ -182,8 +195,12 @@ export async function getTaskStats(): Promise<{
   const byPriority: Record<TaskPriority, number> = { low: 0, medium: 0, high: 0 };
 
   for (const task of tasks) {
-    byStatus[task.status]++;
-    byPriority[task.priority]++;
+    if (task.status in byStatus) {
+      byStatus[task.status]++;
+    }
+    if (task.priority in byPriority) {
+      byPriority[task.priority]++;
+    }
   }
 
   return { total: tasks.length, byStatus, byPriority };

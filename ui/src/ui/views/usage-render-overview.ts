@@ -1,5 +1,6 @@
 import { html, nothing } from "lit";
 import { formatDurationCompact } from "../../../../src/infra/format-time/format-duration.ts";
+import { t } from "../../i18n/index.ts";
 import type { VikingStatsSnapshot } from "../types.ts";
 import {
   formatCost,
@@ -547,26 +548,29 @@ function renderUsageInsights(
 
 function renderVikingRoutingCard(vikingStats: VikingStatsSnapshot | null) {
   if (!vikingStats || !vikingStats.enabled) {
-    return renderInsightList("Viking Routing", [], "Routing disabled");
+    return renderInsightList(t("usage.vikingRouting"), [], t("usage.vikingRoutingDisabled"));
   }
   const items = [
     {
-      label: "Cache Hit Rate",
+      label: t("usage.cacheHitRate"),
       value: `${Number.isFinite(vikingStats.cache.hitRate) ? (vikingStats.cache.hitRate * 100).toFixed(1) : "0.0"}%`,
-      sub: `${vikingStats.cache.size} / ${vikingStats.cache.maxSize} entries`,
+      sub: `${Number.isFinite(vikingStats.cache.size) ? vikingStats.cache.size : 0} / ${Number.isFinite(vikingStats.cache.maxSize) ? vikingStats.cache.maxSize : 0} entries`,
     },
     {
-      label: "Rule Engine Hits",
+      label: t("usage.ruleEngineHits"),
       value: `${Number.isFinite(vikingStats.routes.ruleHitRate) ? (vikingStats.routes.ruleHitRate * 100).toFixed(1) : "0.0"}%`,
-      sub: `${vikingStats.routes.ruleHits} / ${vikingStats.routes.total} routes`,
+      sub: `${Number.isFinite(vikingStats.routes.ruleHits) ? vikingStats.routes.ruleHits : 0} / ${Number.isFinite(vikingStats.routes.total) ? vikingStats.routes.total : 0} routes`,
     },
     {
-      label: "Re-routes",
-      value: `${vikingStats.routes.reroutes}`,
-      sub: vikingStats.routes.reroutes > 0 ? "Dynamic re-routing active" : "No re-routes needed",
+      label: t("usage.reroutes"),
+      value: `${Number.isFinite(vikingStats.routes.reroutes) ? vikingStats.routes.reroutes : 0}`,
+      sub:
+        Number.isFinite(vikingStats.routes.reroutes) && vikingStats.routes.reroutes > 0
+          ? t("usage.dynamicRerouteActive")
+          : t("usage.noReroutesNeeded"),
     },
   ];
-  return renderInsightList("Viking Routing", items, "No routing data");
+  return renderInsightList(t("usage.vikingRouting"), items, t("usage.noRoutingData"));
 }
 
 function renderSessionsCard(

@@ -531,12 +531,15 @@ function broadcastChatFinal(params: {
   message?: Record<string, unknown>;
 }) {
   const seq = nextChatSeq({ agentRunSeq: params.context.agentRunSeq }, params.runId);
+  const routeTag = getVikingRouteTag();
+  const taggedMessage =
+    params.message && routeTag ? { ...params.message, _routeTag: routeTag } : params.message;
   const payload = {
     runId: params.runId,
     sessionKey: params.sessionKey,
     seq,
     state: "final" as const,
-    message: params.message,
+    message: taggedMessage,
   };
   params.context.broadcast("chat", payload);
   params.context.nodeSendToSession(params.sessionKey, "chat", payload);
@@ -629,7 +632,11 @@ export const chatHandlers: GatewayRequestHandlers = {
           if (!msg || typeof msg !== "object") {
             return msg;
           }
-          return { ...(msg as Record<string, unknown>), _routeTag: routeTag };
+          const m = msg as Record<string, unknown>;
+          if (m.role !== "tool" && m.type !== "tool_use" && m.type !== "tool_result") {
+            return msg;
+          }
+          return { ...m, _routeTag: routeTag };
         })
       : bounded.messages;
     respond(true, {

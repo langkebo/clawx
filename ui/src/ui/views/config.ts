@@ -1,4 +1,5 @@
 import { html, nothing } from "lit";
+import { t } from "../../i18n/index.ts";
 import type { ConfigUiHints } from "../types.ts";
 import { hintForPath, humanize, schemaType, type JsonSchema } from "./config-form.shared.ts";
 import { analyzeConfigSchema, renderConfigForm, SECTION_META } from "./config-form.ts";
@@ -279,7 +280,7 @@ const SECTIONS: Array<{ key: string; label: string }> = [
   { key: "hooks", label: "Hooks" },
   { key: "skills", label: "Skills" },
   { key: "tools", label: "Tools" },
-  { key: "viking", label: "Viking Routing" },
+  { key: "viking", label: t("overview.viking.configTitle") },
   { key: "gateway", label: "Gateway" },
   { key: "wizard", label: "Setup Wizard" },
 ];

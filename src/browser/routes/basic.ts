@@ -138,13 +138,18 @@ export function registerBrowserBasicRoutes(app: BrowserRouteRegistrar, ctx: Brow
     const name = toStringOrEmpty((req.body as { name?: unknown })?.name);
     const color = toStringOrEmpty((req.body as { color?: unknown })?.color);
     const cdpUrl = toStringOrEmpty((req.body as { cdpUrl?: unknown })?.cdpUrl);
-    const driver = toStringOrEmpty((req.body as { driver?: unknown })?.driver) as
-      | "openclaw"
-      | "extension"
-      | "";
+    const driverRaw = toStringOrEmpty((req.body as { driver?: unknown })?.driver);
+    const driver =
+      driverRaw === "extension" ? "extension" : driverRaw === "openclaw" ? "openclaw" : "";
 
     if (!name) {
       return jsonError(res, 400, "name is required");
+    }
+    if (name.length > 128) {
+      return jsonError(res, 400, "name too long (max 128 chars)");
+    }
+    if (color && !/^#[0-9a-fA-F]{6}$/.test(color)) {
+      return jsonError(res, 400, "color must be hex format #RRGGBB");
     }
 
     try {
@@ -179,6 +184,9 @@ export function registerBrowserBasicRoutes(app: BrowserRouteRegistrar, ctx: Brow
     const name = toStringOrEmpty(req.params.name);
     if (!name) {
       return jsonError(res, 400, "profile name is required");
+    }
+    if (name.length > 128 || /[/\\]/.test(name)) {
+      return jsonError(res, 400, "invalid profile name");
     }
 
     try {

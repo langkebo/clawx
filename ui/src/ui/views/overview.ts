@@ -294,11 +294,11 @@ export function renderOverview(props: OverviewProps) {
         </div>
         <div class="stat">
           <div class="stat-label">${t("overview.viking.cacheSize")}</div>
-          <div class="stat-value">${props.vikingStats.cache.size}/${props.vikingStats.cache.maxSize}</div>
+          <div class="stat-value">${Number.isFinite(props.vikingStats.cache.size) ? props.vikingStats.cache.size : 0}/${Number.isFinite(props.vikingStats.cache.maxSize) ? props.vikingStats.cache.maxSize : 0}</div>
         </div>
         <div class="stat">
           <div class="stat-label">${t("overview.viking.totalRoutes")}</div>
-          <div class="stat-value">${props.vikingStats.routes.total}</div>
+          <div class="stat-value">${Number.isFinite(props.vikingStats.routes.total) ? props.vikingStats.routes.total : 0}</div>
         </div>
         <div class="stat">
           <div class="stat-label">${t("overview.viking.ruleHitRate")}</div>
@@ -306,15 +306,17 @@ export function renderOverview(props: OverviewProps) {
         </div>
         <div class="stat">
           <div class="stat-label">${t("overview.viking.reroutes")}</div>
-          <div class="stat-value">${props.vikingStats.routes.reroutes}</div>
+          <div class="stat-value">${Number.isFinite(props.vikingStats.routes.reroutes) ? props.vikingStats.routes.reroutes : 0}</div>
         </div>
       </div>
       <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
-        ${Object.entries(props.vikingStats.optimizations).map(
-          ([key, val]) => html`
-          <span class="chip ${val ? "ok" : "muted"}" title="${key}">${key.replace(/_/g, " ")}</span>
-        `,
-        )}
+        ${Object.entries(props.vikingStats.optimizations).map(([key, val]) => {
+          const i18nKey = `overview.viking.${key.split("_")[0]}`;
+          const label = t(i18nKey) !== i18nKey ? t(i18nKey) : key.replace(/_/g, " ");
+          return html`
+          <span class="chip ${val ? "ok" : "muted"}" title="${label}">${label}</span>
+        `;
+        })}
       </div>
     </section>
     `

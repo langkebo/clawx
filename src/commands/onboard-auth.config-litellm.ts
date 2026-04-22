@@ -5,7 +5,7 @@ import {
 } from "./onboard-auth.config-shared.js";
 import { LITELLM_DEFAULT_MODEL_REF } from "./onboard-auth.credentials.js";
 
-export const LITELLM_BASE_URL = "http://localhost:4000";
+export const LITELLM_BASE_URL = process.env.LITELLM_BASE_URL ?? "http://localhost:4000";
 export const LITELLM_DEFAULT_MODEL_ID = "claude-opus-4-6";
 const LITELLM_DEFAULT_CONTEXT_WINDOW = 128_000;
 const LITELLM_DEFAULT_MAX_TOKENS = 8_192;

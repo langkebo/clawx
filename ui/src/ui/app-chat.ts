@@ -65,7 +65,11 @@ export async function handleAbortChat(host: ChatHost) {
     return;
   }
   host.chatMessage = "";
-  await abortChatRun(host as unknown as OpenClawApp);
+  try {
+    await abortChatRun(host as unknown as OpenClawApp);
+  } catch (err) {
+    console.error("[openclaw] abort chat failed:", err);
+  }
 }
 
 function enqueueChatMessage(
@@ -104,7 +108,12 @@ async function sendChatMessageNow(
   },
 ) {
   resetToolStream(host as unknown as Parameters<typeof resetToolStream>[0]);
-  const runId = await sendChatMessage(host as unknown as OpenClawApp, message, opts?.attachments);
+  let runId: string | null | undefined;
+  try {
+    runId = await sendChatMessage(host as unknown as OpenClawApp, message, opts?.attachments);
+  } catch (err) {
+    console.error("[openclaw] send chat message failed:", err);
+  }
   const ok = Boolean(runId);
   if (!ok && opts?.previousDraft != null) {
     host.chatMessage = opts.previousDraft;
@@ -203,13 +212,17 @@ export async function handleSendChat(
 }
 
 export async function refreshChat(host: ChatHost, opts?: { scheduleScroll?: boolean }) {
-  await Promise.all([
-    loadChatHistory(host as unknown as OpenClawApp),
-    loadSessions(host as unknown as OpenClawApp, {
-      activeMinutes: CHAT_SESSIONS_ACTIVE_MINUTES,
-    }),
-    refreshChatAvatar(host),
-  ]);
+  try {
+    await Promise.all([
+      loadChatHistory(host as unknown as OpenClawApp),
+      loadSessions(host as unknown as OpenClawApp, {
+        activeMinutes: CHAT_SESSIONS_ACTIVE_MINUTES,
+      }),
+      refreshChatAvatar(host),
+    ]);
+  } catch (err) {
+    console.error("[openclaw] refreshChat failed:", err);
+  }
   if (opts?.scheduleScroll !== false) {
     scheduleChatScroll(host as unknown as Parameters<typeof scheduleChatScroll>[0]);
   }

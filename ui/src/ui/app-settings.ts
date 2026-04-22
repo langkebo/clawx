@@ -179,71 +179,75 @@ export function setTheme(host: SettingsHost, next: ThemeMode, context?: ThemeTra
 }
 
 export async function refreshActiveTab(host: SettingsHost) {
-  if (host.tab === "overview") {
-    await loadOverview(host);
-  }
-  if (host.tab === "channels") {
-    await loadChannelsTab(host);
-  }
-  if (host.tab === "instances") {
-    await loadPresence(host as unknown as OpenClawApp);
-  }
-  if (host.tab === "sessions") {
-    await loadSessions(host as unknown as OpenClawApp);
-  }
-  if (host.tab === "cron") {
-    await loadCron(host);
-  }
-  if (host.tab === "skills") {
-    await loadSkills(host as unknown as OpenClawApp);
-  }
-  if (host.tab === "agents") {
-    await loadAgents(host as unknown as OpenClawApp);
-    await loadConfig(host as unknown as OpenClawApp);
-    const agentIds = host.agentsList?.agents?.map((entry) => entry.id) ?? [];
-    if (agentIds.length > 0) {
-      void loadAgentIdentities(host as unknown as OpenClawApp, agentIds);
+  try {
+    if (host.tab === "overview") {
+      await loadOverview(host);
     }
-    const agentId =
-      host.agentsSelectedId ?? host.agentsList?.defaultId ?? host.agentsList?.agents?.[0]?.id;
-    if (agentId) {
-      void loadAgentIdentity(host as unknown as OpenClawApp, agentId);
-      if (host.agentsPanel === "skills") {
-        void loadAgentSkills(host as unknown as OpenClawApp, agentId);
+    if (host.tab === "channels") {
+      await loadChannelsTab(host);
+    }
+    if (host.tab === "instances") {
+      await loadPresence(host as unknown as OpenClawApp);
+    }
+    if (host.tab === "sessions") {
+      await loadSessions(host as unknown as OpenClawApp);
+    }
+    if (host.tab === "cron") {
+      await loadCron(host);
+    }
+    if (host.tab === "skills") {
+      await loadSkills(host as unknown as OpenClawApp);
+    }
+    if (host.tab === "agents") {
+      await loadAgents(host as unknown as OpenClawApp);
+      await loadConfig(host as unknown as OpenClawApp);
+      const agentIds = host.agentsList?.agents?.map((entry) => entry.id) ?? [];
+      if (agentIds.length > 0) {
+        void loadAgentIdentities(host as unknown as OpenClawApp, agentIds);
       }
-      if (host.agentsPanel === "channels") {
-        void loadChannels(host as unknown as OpenClawApp, false);
-      }
-      if (host.agentsPanel === "cron") {
-        void loadCron(host);
+      const agentId =
+        host.agentsSelectedId ?? host.agentsList?.defaultId ?? host.agentsList?.agents?.[0]?.id;
+      if (agentId) {
+        void loadAgentIdentity(host as unknown as OpenClawApp, agentId);
+        if (host.agentsPanel === "skills") {
+          void loadAgentSkills(host as unknown as OpenClawApp, agentId);
+        }
+        if (host.agentsPanel === "channels") {
+          void loadChannels(host as unknown as OpenClawApp, false);
+        }
+        if (host.agentsPanel === "cron") {
+          void loadCron(host);
+        }
       }
     }
-  }
-  if (host.tab === "nodes") {
-    await loadNodes(host as unknown as OpenClawApp);
-    await loadDevices(host as unknown as OpenClawApp);
-    await loadConfig(host as unknown as OpenClawApp);
-    await loadExecApprovals(host as unknown as OpenClawApp);
-  }
-  if (host.tab === "chat") {
-    await refreshChat(host as unknown as Parameters<typeof refreshChat>[0]);
-    scheduleChatScroll(
-      host as unknown as Parameters<typeof scheduleChatScroll>[0],
-      !host.chatHasAutoScrolled,
-    );
-  }
-  if (host.tab === "config") {
-    await loadConfigSchema(host as unknown as OpenClawApp);
-    await loadConfig(host as unknown as OpenClawApp);
-  }
-  if (host.tab === "debug") {
-    await loadDebug(host as unknown as OpenClawApp);
-    host.eventLog = host.eventLogBuffer;
-  }
-  if (host.tab === "logs") {
-    host.logsAtBottom = true;
-    await loadLogs(host as unknown as OpenClawApp, { reset: true });
-    scheduleLogsScroll(host as unknown as Parameters<typeof scheduleLogsScroll>[0], true);
+    if (host.tab === "nodes") {
+      await loadNodes(host as unknown as OpenClawApp);
+      await loadDevices(host as unknown as OpenClawApp);
+      await loadConfig(host as unknown as OpenClawApp);
+      await loadExecApprovals(host as unknown as OpenClawApp);
+    }
+    if (host.tab === "chat") {
+      await refreshChat(host as unknown as Parameters<typeof refreshChat>[0]);
+      scheduleChatScroll(
+        host as unknown as Parameters<typeof scheduleChatScroll>[0],
+        !host.chatHasAutoScrolled,
+      );
+    }
+    if (host.tab === "config") {
+      await loadConfigSchema(host as unknown as OpenClawApp);
+      await loadConfig(host as unknown as OpenClawApp);
+    }
+    if (host.tab === "debug") {
+      await loadDebug(host as unknown as OpenClawApp);
+      host.eventLog = host.eventLogBuffer;
+    }
+    if (host.tab === "logs") {
+      host.logsAtBottom = true;
+      await loadLogs(host as unknown as OpenClawApp, { reset: true });
+      scheduleLogsScroll(host as unknown as Parameters<typeof scheduleLogsScroll>[0], true);
+    }
+  } catch (err) {
+    console.error("[openclaw] refreshActiveTab failed:", err);
   }
 }
 
@@ -403,14 +407,18 @@ export function syncUrlWithSessionKey(host: SettingsHost, sessionKey: string, re
 }
 
 export async function loadOverview(host: SettingsHost) {
-  await Promise.all([
-    loadChannels(host as unknown as OpenClawApp, false),
-    loadPresence(host as unknown as OpenClawApp),
-    loadSessions(host as unknown as OpenClawApp),
-    loadCronStatus(host as unknown as OpenClawApp),
-    loadDebug(host as unknown as OpenClawApp),
-    loadVikingStats(host as unknown as OpenClawApp),
-  ]);
+  try {
+    await Promise.all([
+      loadChannels(host as unknown as OpenClawApp, false),
+      loadPresence(host as unknown as OpenClawApp),
+      loadSessions(host as unknown as OpenClawApp),
+      loadCronStatus(host as unknown as OpenClawApp),
+      loadDebug(host as unknown as OpenClawApp),
+      loadVikingStats(host as unknown as OpenClawApp),
+    ]);
+  } catch (err) {
+    console.error("[openclaw] loadOverview failed:", err);
+  }
 }
 
 export async function loadVikingStats(host: OpenClawApp) {
@@ -426,17 +434,25 @@ export async function loadVikingStats(host: OpenClawApp) {
 }
 
 export async function loadChannelsTab(host: SettingsHost) {
-  await Promise.all([
-    loadChannels(host as unknown as OpenClawApp, true),
-    loadConfigSchema(host as unknown as OpenClawApp),
-    loadConfig(host as unknown as OpenClawApp),
-  ]);
+  try {
+    await Promise.all([
+      loadChannels(host as unknown as OpenClawApp, true),
+      loadConfigSchema(host as unknown as OpenClawApp),
+      loadConfig(host as unknown as OpenClawApp),
+    ]);
+  } catch (err) {
+    console.error("[openclaw] loadChannelsTab failed:", err);
+  }
 }
 
 export async function loadCron(host: SettingsHost) {
-  await Promise.all([
-    loadChannels(host as unknown as OpenClawApp, false),
-    loadCronStatus(host as unknown as OpenClawApp),
-    loadCronJobs(host as unknown as OpenClawApp),
-  ]);
+  try {
+    await Promise.all([
+      loadChannels(host as unknown as OpenClawApp, false),
+      loadCronStatus(host as unknown as OpenClawApp),
+      loadCronJobs(host as unknown as OpenClawApp),
+    ]);
+  } catch (err) {
+    console.error("[openclaw] loadCron failed:", err);
+  }
 }

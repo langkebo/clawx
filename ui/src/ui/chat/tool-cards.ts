@@ -1,4 +1,5 @@
 import { html, nothing } from "lit";
+import { t } from "../../i18n/index.ts";
 import { icons } from "../icons.ts";
 import { formatToolDetail, resolveToolDisplay } from "../tool-display.ts";
 import type { ToolCard } from "../types/chat-types.ts";
@@ -97,7 +98,7 @@ export function renderToolCardSidebar(card: ToolCard, onOpenSidebar?: (content: 
           <span class="chat-tool-card__icon">${icons[display.icon]}</span>
           <span>${display.label}</span>
         </div>
-        ${card.routeTag ? html`<span class="chat-tool-card__route-tag" title="Viking route">${card.routeTag}</span>` : nothing}
+        ${card.routeTag ? html`<span class="chat-tool-card__route-tag" title="${t("overview.viking.routeTag")}">${card.routeTag}</span>` : nothing}
         ${
           canClick
             ? html`<span class="chat-tool-card__action">${hasText ? "View" : ""} ${icons.check}</span>`

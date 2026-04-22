@@ -297,6 +297,7 @@ export const handleNodeEvent = async (ctx: NodeEventContext, nodeId: string, evt
         ctx.deps,
       ).catch((err) => {
         ctx.logGateway.warn(`agent failed node=${nodeId}: ${formatForLog(err)}`);
+        ctx.broadcast("agent.error", { error: String(err), source: "voice.transcript", nodeId });
       });
       return;
     }
@@ -427,6 +428,7 @@ export const handleNodeEvent = async (ctx: NodeEventContext, nodeId: string, evt
         ctx.deps,
       ).catch((err) => {
         ctx.logGateway.warn(`agent failed node=${nodeId}: ${formatForLog(err)}`);
+        ctx.broadcast("agent.error", { error: String(err), source: "agent.request", nodeId });
       });
       return;
     }

@@ -179,7 +179,7 @@ export function registerBrowserAgentSnapshotRoutes(
     const hasMaxChars = Object.hasOwn(req.query, "maxChars");
     const maxCharsRaw =
       typeof req.query.maxChars === "string" ? Number(req.query.maxChars) : undefined;
-    const limit = Number.isFinite(limitRaw) ? limitRaw : undefined;
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(limitRaw!, 10000)) : undefined;
     const maxChars =
       typeof maxCharsRaw === "number" && Number.isFinite(maxCharsRaw) && maxCharsRaw > 0
         ? Math.floor(maxCharsRaw)
@@ -201,7 +201,9 @@ export function registerBrowserAgentSnapshotRoutes(
     const interactive = interactiveRaw ?? (mode === "efficient" ? true : undefined);
     const compact = compactRaw ?? (mode === "efficient" ? true : undefined);
     const depth =
-      depthRaw ?? (mode === "efficient" ? DEFAULT_AI_SNAPSHOT_EFFICIENT_DEPTH : undefined);
+      (depthRaw != null && Number.isFinite(depthRaw)
+        ? Math.max(1, Math.min(depthRaw, 50))
+        : undefined) ?? (mode === "efficient" ? DEFAULT_AI_SNAPSHOT_EFFICIENT_DEPTH : undefined);
     const selector = toStringOrEmpty(req.query.selector);
     const frameSelector = toStringOrEmpty(req.query.frame);
     const selectorValue = selector.trim() || undefined;

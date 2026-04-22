@@ -1,4 +1,5 @@
 import { html, nothing } from "lit";
+import { t } from "../../i18n/index.ts";
 import { icons } from "../icons.ts";
 import type { ConfigUiHints } from "../types.ts";
 import { renderNode } from "./config-form.node.ts";
@@ -280,8 +281,8 @@ export const SECTION_META: Record<string, { label: string; description: string }
   talk: { label: "Talk", description: "Voice and speech settings" },
   plugins: { label: "Plugins", description: "Plugin management and extensions" },
   viking: {
-    label: "Viking Routing",
-    description: "Intelligent routing, cache, and optimization settings",
+    label: t("overview.viking.configTitle"),
+    description: t("overview.viking.configDesc"),
   },
 };
 

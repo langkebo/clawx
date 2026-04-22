@@ -372,23 +372,38 @@ export async function runEmbeddedAttempt(
     );
 
     // P4: 先尝试规则引擎（零成本路由）
-    let routingDecision: VikingRouteResult =
-      tryRuleBasedRoute({
-        fileNames: vikingFileNames,
-        promptLength: params.prompt?.length ?? 0,
-        hasFileContext: vikingFileNames.length > 0,
-        workspaceDir: effectiveWorkspace,
-      }) ??
-      (await vikingRoute({
-        prompt: params.prompt,
-        tools: toolsRaw,
-        fileNames: vikingFileNames,
-        skills: vikingSkills,
-        model: params.model,
-        modelRegistry: params.modelRegistry,
-        provider: params.provider,
-        timeline: l0Result.rawTimeline || undefined,
-      }));
+    let routingDecision: VikingRouteResult;
+    try {
+      routingDecision =
+        tryRuleBasedRoute({
+          fileNames: vikingFileNames,
+          promptLength: params.prompt?.length ?? 0,
+          hasFileContext: vikingFileNames.length > 0,
+          workspaceDir: effectiveWorkspace,
+        }) ??
+        (await vikingRoute({
+          prompt: params.prompt,
+          tools: toolsRaw,
+          fileNames: vikingFileNames,
+          skills: vikingSkills,
+          model: params.model,
+          modelRegistry: params.modelRegistry,
+          provider: params.provider,
+          timeline: l0Result.rawTimeline || undefined,
+        }));
+    } catch (err) {
+      log.warn(`[viking] routing failed, falling back to all tools: ${String(err)}`);
+      routingDecision = {
+        tools: new Set(toolsRaw.map((t) => t.name)),
+        files: new Set(vikingFileNames),
+        promptLayer: "full",
+        skillsMode: "names",
+        skipped: true,
+        needsL1: false,
+        needsL2: false,
+        l1Dates: [],
+      };
+    }
     // 应用路由结果：只保留模型选出的工具
     let routedToolsRaw = routingDecision.skipped
       ? toolsRaw

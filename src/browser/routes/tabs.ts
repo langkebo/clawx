@@ -116,6 +116,9 @@ export function registerBrowserTabRoutes(app: BrowserRouteRegistrar, ctx: Browse
     if (!url) {
       return jsonError(res, 400, "url is required");
     }
+    if (url.length > 2048) {
+      return jsonError(res, 400, "url too long (max 2048 chars)");
+    }
 
     await withTabsProfileRoute({
       req,
@@ -164,6 +167,20 @@ export function registerBrowserTabRoutes(app: BrowserRouteRegistrar, ctx: Browse
   app.post("/tabs/action", async (req, res) => {
     const action = toStringOrEmpty((req.body as { action?: unknown })?.action);
     const index = toNumber((req.body as { index?: unknown })?.index);
+    const VALID_TAB_ACTIONS = new Set([
+      "list",
+      "new",
+      "focus",
+      "close",
+      "navigate",
+      "screenshot",
+      "click",
+      "type",
+      "scroll",
+    ]);
+    if (action && !VALID_TAB_ACTIONS.has(action)) {
+      return jsonError(res, 400, `invalid action: ${action}`);
+    }
 
     await withTabsProfileRoute({
       req,

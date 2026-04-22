@@ -11,41 +11,22 @@ import {
 import type { AnyAgentTool } from "./common.js";
 import { jsonResult, readNumberParam, readStringParam, readStringArrayParam } from "./common.js";
 
-const _TasksListSchema = Type.Object({
-  status: Type.Optional(
-    Type.String({ description: "Filter by status: pending|running|completed|failed|cancelled" }),
-  ),
-  priority: Type.Optional(Type.String({ description: "Filter by priority: low|medium|high" })),
-  tag: Type.Optional(Type.String({ description: "Filter by tag" })),
-  limit: Type.Optional(Type.Number({ description: "Max results (default 20)" })),
-});
+const VALID_STATUSES: readonly TaskStatus[] = [
+  "pending",
+  "running",
+  "completed",
+  "failed",
+  "cancelled",
+];
+const VALID_PRIORITIES: readonly TaskPriority[] = ["low", "medium", "high"];
 
-const _TasksCreateSchema = Type.Object({
-  title: Type.String({ description: "Task title" }),
-  description: Type.Optional(Type.String({ description: "Task description" })),
-  priority: Type.Optional(
-    Type.String({ description: "Priority: low|medium|high (default medium)" }),
-  ),
-  tags: Type.Optional(Type.Array(Type.String(), { description: "Tags for categorization" })),
-});
+function isValidStatus(value: string): value is TaskStatus {
+  return (VALID_STATUSES as readonly string[]).includes(value);
+}
 
-const _TasksUpdateSchema = Type.Object({
-  taskId: Type.String({ description: "Task ID to update" }),
-  status: Type.Optional(Type.String({ description: "New status" })),
-  priority: Type.Optional(Type.String({ description: "New priority" })),
-  title: Type.Optional(Type.String({ description: "New title" })),
-  description: Type.Optional(Type.String({ description: "New description" })),
-  error: Type.Optional(Type.String({ description: "Error message for failed tasks" })),
-  progress: Type.Optional(Type.Number({ description: "Progress percentage 0-100" })),
-});
-
-const _TasksShowSchema = Type.Object({
-  taskId: Type.String({ description: "Task ID to show" }),
-});
-
-const _TasksRemoveSchema = Type.Object({
-  taskId: Type.String({ description: "Task ID to remove" }),
-});
+function isValidPriority(value: string): value is TaskPriority {
+  return (VALID_PRIORITIES as readonly string[]).includes(value);
+}
 
 export function createTasksTool(): AnyAgentTool {
   return {
@@ -67,6 +48,7 @@ export function createTasksTool(): AnyAgentTool {
         Type.String({ description: "Task priority (for create/update/list filter)" }),
       ),
       tags: Type.Optional(Type.Array(Type.String({ description: "Tags (for create)" }))),
+      tag: Type.Optional(Type.String({ description: "Filter by tag (for list)" })),
       error: Type.Optional(
         Type.String({ description: "Error message (for update with failed status)" }),
       ),
@@ -78,9 +60,11 @@ export function createTasksTool(): AnyAgentTool {
 
       switch (action) {
         case "list": {
+          const statusStr = readStringParam(params, "status");
+          const priorityStr = readStringParam(params, "priority");
           const tasks = await listTasks({
-            status: readStringParam(params, "status") as TaskStatus | undefined,
-            priority: readStringParam(params, "priority") as TaskPriority | undefined,
+            status: statusStr && isValidStatus(statusStr) ? statusStr : undefined,
+            priority: priorityStr && isValidPriority(priorityStr) ? priorityStr : undefined,
             tag: readStringParam(params, "tag"),
             limit: readNumberParam(params, "limit") ?? 20,
           });
@@ -89,10 +73,11 @@ export function createTasksTool(): AnyAgentTool {
 
         case "create": {
           const title = readStringParam(params, "title", { required: true });
+          const priorityStr = readStringParam(params, "priority") ?? "medium";
           const task = await createTask({
             title,
             description: readStringParam(params, "description"),
-            priority: (readStringParam(params, "priority") ?? "medium") as TaskPriority,
+            priority: isValidPriority(priorityStr) ? priorityStr : "medium",
             tags: readStringArrayParam(params, "tags"),
           });
           return jsonResult({ action: "create", task });
@@ -103,11 +88,25 @@ export function createTasksTool(): AnyAgentTool {
           const updates: Parameters<typeof updateTask>[1] = {};
           const status = readStringParam(params, "status");
           if (status) {
-            updates.status = status as TaskStatus;
+            if (isValidStatus(status)) {
+              updates.status = status;
+            } else {
+              return jsonResult({
+                action: "update",
+                error: `Invalid status: ${status}. Valid: ${VALID_STATUSES.join(", ")}`,
+              });
+            }
           }
           const priority = readStringParam(params, "priority");
           if (priority) {
-            updates.priority = priority as TaskPriority;
+            if (isValidPriority(priority)) {
+              updates.priority = priority;
+            } else {
+              return jsonResult({
+                action: "update",
+                error: `Invalid priority: ${priority}. Valid: ${VALID_PRIORITIES.join(", ")}`,
+              });
+            }
           }
           const title = readStringParam(params, "title");
           if (title) {
@@ -123,6 +122,12 @@ export function createTasksTool(): AnyAgentTool {
           }
           const progress = readNumberParam(params, "progress");
           if (progress != null) {
+            if (progress < 0 || progress > 100) {
+              return jsonResult({
+                action: "update",
+                error: `Progress must be 0-100, got: ${progress}`,
+              });
+            }
             updates.progress = progress;
           }
 

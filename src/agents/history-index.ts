@@ -31,8 +31,10 @@
  */
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { log } from "./pi-embedded-runner/logger.ts";
+import { looksLikeEnvVarName, resolveApiKeyFromEnv } from "./provider-env-resolve.js";
 
 // ========================
 // 类型定义
@@ -160,7 +162,11 @@ function generateTsid(): string {
   const day = String(now.getDate()).padStart(2, "0");
   const hour = String(now.getHours()).padStart(2, "0");
   const minute = String(now.getMinutes()).padStart(2, "0");
-  return `${year}${month}${day}${hour}${minute}`;
+  const second = String(now.getSeconds()).padStart(2, "0");
+  const rand = Math.floor(Math.random() * 100)
+    .toString()
+    .padStart(2, "0");
+  return `${year}${month}${day}${hour}${minute}${second}${rand}`;
 }
 
 function formatDate(): string {
@@ -189,7 +195,10 @@ function loadTsidSessionMap(agentDir: string): Record<string, string> {
   try {
     const raw = fs.readFileSync(mapPath, "utf-8");
     return JSON.parse(raw);
-  } catch {
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      log.warn(`[history] tsid-session-map.json parse failed, resetting: ${String(err)}`);
+    }
     return {};
   }
 }
@@ -486,67 +495,6 @@ export async function loadL2Session(params: {
 // 通用 apiKey 解析：支持 modelRegistry、环境变量、openclaw.json
 // ========================
 
-/** 常见 provider 对应的环境变量名 */
-const PROVIDER_ENV_MAP: Record<string, string> = {
-  openai: "OPENAI_API_KEY",
-  anthropic: "ANTHROPIC_API_KEY",
-  google: "GEMINI_API_KEY",
-  openrouter: "OPENROUTER_API_KEY",
-  dashscope: "DASHSCOPE_API_KEY",
-  moonshot: "MOONSHOT_API_KEY",
-  siliconflow: "SILICONFLOW_API_KEY",
-  ark: "ARK_API_KEY",
-  groq: "GROQ_API_KEY",
-  mistral: "MISTRAL_API_KEY",
-  xai: "XAI_API_KEY",
-  deepgram: "DEEPGRAM_API_KEY",
-  cerebras: "CEREBRAS_API_KEY",
-  minimax: "MINIMAX_API_KEY",
-  qwen: "QWEN_API_KEY",
-};
-
-/**
- * 判断一个字符串是否是环境变量名（全大写+下划线）而非真实 key
- */
-function looksLikeEnvVarName(value: string): boolean {
-  return /^[A-Z][A-Z0-9_]+$/.test(value);
-}
-
-/**
- * 从环境变量中查找真实 apiKey
- * 优先级：精确匹配环境变量名 → provider 对应的环境变量 → 遍历所有已知环境变量
- */
-function resolveApiKeyFromEnv(hint?: string, providerName?: string): string {
-  // 1. 如果 hint 本身就是环境变量名，直接去 process.env 取
-  if (hint && looksLikeEnvVarName(hint)) {
-    const val = process.env[hint]?.trim();
-    if (val && !looksLikeEnvVarName(val)) {
-      return val;
-    }
-  }
-
-  // 2. 根据 provider 名称查找对应的环境变量
-  if (providerName) {
-    const envVar = PROVIDER_ENV_MAP[providerName.toLowerCase()];
-    if (envVar) {
-      const val = process.env[envVar]?.trim();
-      if (val && !looksLikeEnvVarName(val)) {
-        return val;
-      }
-    }
-  }
-
-  // 3. 遍历所有已知的 API key 环境变量
-  for (const envVar of Object.values(PROVIDER_ENV_MAP)) {
-    const val = process.env[envVar]?.trim();
-    if (val && !looksLikeEnvVarName(val)) {
-      return val;
-    }
-  }
-
-  return "";
-}
-
 /**
  * 从 openclaw.json 读取当前主模型的配置，用于 L0/L1 总结
  *
@@ -587,7 +535,7 @@ async function resolveSummaryConfig(params?: {
 
   try {
     const configPath = path.join(
-      process.env.HOME ?? process.env.USERPROFILE ?? "~",
+      process.env.HOME ?? process.env.USERPROFILE ?? os.homedir(),
       ".openclaw",
       "openclaw.json",
     );
@@ -836,7 +784,7 @@ ${toolList}
       log.info("[history] L1: no decisions this turn");
     }
   } catch (err) {
-    log.warn(`[history] append failed: ${String(err)}`);
+    log.warn(`[history] L1 append failed (data lost): ${String(err)}`);
   }
 }
 

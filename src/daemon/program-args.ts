@@ -147,7 +147,12 @@ async function resolveNodePath(): Promise<string> {
   return nodePath;
 }
 
+const ALLOWED_BINARIES = new Set(["bun", "node"]);
+
 async function resolveBinaryPath(binary: string): Promise<string> {
+  if (!ALLOWED_BINARIES.has(binary)) {
+    throw new Error(`resolveBinaryPath: disallowed binary "${binary}"`);
+  }
   const { execSync } = await import("node:child_process");
   const cmd = process.platform === "win32" ? "where" : "which";
   try {

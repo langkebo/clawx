@@ -23,8 +23,10 @@ function uuidFromBytes(bytes: Uint8Array): string {
 function weakRandomBytes(): Uint8Array {
   const bytes = new Uint8Array(16);
   const now = Date.now();
+  const seed = now ^ (now >>> 16);
   for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = Math.floor(Math.random() * 256);
+    const mixed = Math.imul(seed ^ (i * 2654435761), 2246822519);
+    bytes[i] = ((mixed ^ (mixed >>> 16)) & 0xff) ^ Math.floor(Math.random() * 256);
   }
   bytes[0] ^= now & 0xff;
   bytes[1] ^= (now >>> 8) & 0xff;
