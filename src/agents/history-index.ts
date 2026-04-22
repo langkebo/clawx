@@ -114,6 +114,7 @@ const L2_MAX_CHARS_PER_MESSAGE = 2000;
 const L2_MAX_SESSIONS = 2;
 /** L2 加载限制：总输出最大字符数（约 4000 tok） */
 const L2_MAX_TOTAL_CHARS = 12000;
+const L0_MAX_TIMELINE_CHARS = 15000;
 
 // ========================
 // 工具函数
@@ -657,7 +658,7 @@ async function callSummaryLLM(params: {
     }
   }
 
-  log.info("[history] summary LLM: all parameter combinations failed");
+  log.warn("[history] summary LLM: all parameter combinations failed");
   return null;
 }
 
@@ -861,7 +862,26 @@ export async function loadL0Timeline(params: { agentDir: string }): Promise<L0Ti
   const dateTsidMap = buildDateTsidMap(timeline);
   const tsidSessionMap = loadTsidSessionMap(params.agentDir);
 
-  const prompt = `<conversation_timeline>\n以下是历史对话的时间线索引：\n${timeline}\n</conversation_timeline>`;
+  let trimmedTimeline = timeline;
+  if (timeline.length > L0_MAX_TIMELINE_CHARS) {
+    const lines = timeline.split("\n");
+    const kept: string[] = [];
+    let total = 0;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const lineLen = lines[i].length + 1;
+      if (total + lineLen > L0_MAX_TIMELINE_CHARS) {
+        break;
+      }
+      kept.unshift(lines[i]);
+      total += lineLen;
+    }
+    trimmedTimeline = kept.join("\n");
+    log.warn(
+      `[history] L0 timeline truncated: ${timeline.length} -> ${trimmedTimeline.length} chars (kept ${kept.length}/${lines.length} lines)`,
+    );
+  }
+
+  const prompt = `<conversation_timeline>\n以下是历史对话的时间线索引：\n${trimmedTimeline}\n</conversation_timeline>`;
 
   log.info(
     `[history] L0 loaded: ${timeline.length} chars, dates: ${Object.keys(dateTsidMap).length}`,

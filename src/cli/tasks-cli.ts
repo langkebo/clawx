@@ -7,7 +7,7 @@ import {
   getTaskStats,
   listTasks,
   updateTask,
-  cleanupCompletedTasks,
+  cleanupOldTasks,
   type Task,
   type TaskStatus,
   type TaskPriority,
@@ -238,9 +238,9 @@ export function registerTasksCli(program: Command) {
     .option("--max-age-days <days>", "Maximum age in days", "7")
     .action(async (opts) => {
       const maxAgeDays = parseInt(opts.maxAgeDays, 10) || 7;
-      const deleted = await cleanupCompletedTasks(maxAgeDays * 24 * 60 * 60 * 1000);
+      const deleted = await cleanupOldTasks(maxAgeDays * 24 * 60 * 60 * 1000);
       console.log(
-        chalk.green(`✓ Cleaned up ${deleted} completed task(s) older than ${maxAgeDays} day(s)`),
+        chalk.green(`✓ Cleaned up ${deleted} old task(s) older than ${maxAgeDays} day(s)`),
       );
     });
 

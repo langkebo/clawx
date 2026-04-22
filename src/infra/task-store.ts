@@ -206,20 +206,21 @@ export async function getTaskStats(): Promise<{
   return { total: tasks.length, byStatus, byPriority };
 }
 
-export async function cleanupCompletedTasks(
-  maxAgeMs: number = 7 * 24 * 60 * 60 * 1000,
-): Promise<number> {
-  const tasks = await listTasks({ status: "completed" });
+export async function cleanupOldTasks(maxAgeMs: number = 7 * 24 * 60 * 60 * 1000): Promise<number> {
+  const tasks = await listTasks();
   const cutoff = Date.now() - maxAgeMs;
   let deleted = 0;
   for (const task of tasks) {
-    if (task.completedAt && task.completedAt < cutoff) {
-      await deleteTask(task.id);
-      deleted++;
+    if (task.status !== "running" && task.status !== "pending") {
+      const taskTime = task.completedAt ?? task.updatedAt ?? task.createdAt;
+      if (taskTime && taskTime < cutoff) {
+        await deleteTask(task.id);
+        deleted++;
+      }
     }
   }
   if (deleted > 0) {
-    log.info(`cleaned up ${deleted} completed tasks older than ${maxAgeMs}ms`);
+    log.info(`cleaned up ${deleted} old tasks older than ${maxAgeMs}ms`);
   }
   return deleted;
 }

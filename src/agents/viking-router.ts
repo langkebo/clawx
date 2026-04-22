@@ -776,21 +776,29 @@ export async function vikingRoute(params: {
   });
 
   // P2: 根据 prompt 复杂度调整路由模型 max_tokens 和模型选择
-  const complexity = classifyPromptComplexity(params.prompt, params.timeline);
+  const cfg = readVikingConfig();
+  if (!cfg.modelSwitching) {
+    log.info(`[viking] P2: model switching disabled, using default model`);
+  }
+  const complexity = cfg.modelSwitching
+    ? classifyPromptComplexity(params.prompt, params.timeline)
+    : { maxTokens: 200, complexity: "moderate" as const };
 
   let routingModel = params.model;
   let routingProvider = params.provider;
-  if (complexity.preferredModel && complexity.preferredProvider) {
+  const preferredModel = cfg.routingModel || complexity.preferredModel;
+  const preferredProvider = cfg.routingModel ? undefined : complexity.preferredProvider;
+  if (preferredModel) {
     try {
       const allModels = params.modelRegistry.getAll();
-      const altModel = allModels.find(
-        (m) => m.id === complexity.preferredModel || m.name === complexity.preferredModel,
-      );
+      const altModel = allModels.find((m) => m.id === preferredModel || m.name === preferredModel);
       if (altModel) {
         routingModel = altModel;
-        routingProvider = complexity.preferredProvider;
+        if (preferredProvider) {
+          routingProvider = preferredProvider;
+        }
         log.info(
-          `[viking] P2: using ${complexity.complexity} model ${complexity.preferredModel} via ${complexity.preferredProvider}`,
+          `[viking] P2: using ${complexity.complexity} model ${preferredModel}${preferredProvider ? ` via ${preferredProvider}` : ""}`,
         );
       }
     } catch {
@@ -960,6 +968,11 @@ Which packs should be added? Reply JSON:
     if (!params.currentTools.has(t) && params.allTools.some((at) => at.name === t)) {
       addTools.add(t);
     }
+  }
+
+  if (addTools.size === 0) {
+    log.warn(`[viking] re-route produced no new tools, skipping`);
+    return { addTools: new Set(), removeTools: new Set(), addPacks: [] };
   }
 
   log.info(

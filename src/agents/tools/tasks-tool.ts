@@ -1,5 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import {
+  cleanupOldTasks,
   createTask,
   deleteTask,
   getTask,
@@ -60,6 +61,7 @@ export function createTasksTool(): AnyAgentTool {
 
       switch (action) {
         case "list": {
+          cleanupOldTasks(30 * 24 * 60 * 60 * 1000).catch(() => {});
           const statusStr = readStringParam(params, "status");
           const priorityStr = readStringParam(params, "priority");
           const tasks = await listTasks({

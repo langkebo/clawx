@@ -660,7 +660,7 @@ export const OpenClawSchema = z
         modelSwitching: z.boolean().optional(),
         parallelRouting: z.boolean().optional(),
         feedbackLoop: z.boolean().optional(),
-        routingModel: z.string().optional(),
+        routingModel: z.string().min(1).max(128).optional(),
       })
       .strict()
       .optional(),

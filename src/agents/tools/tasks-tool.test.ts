@@ -3,6 +3,7 @@ import * as taskStore from "../../infra/task-store.js";
 import { createTasksTool } from "./tasks-tool.js";
 
 vi.mock("../../infra/task-store.js", () => ({
+  cleanupOldTasks: vi.fn().mockResolvedValue(0),
   createTask: vi.fn(),
   deleteTask: vi.fn(),
   getTask: vi.fn(),
