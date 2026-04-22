@@ -617,6 +617,7 @@ async function callRoutingModel(params: {
       }
 
       if (rateLimitRetry) {
+        sameProviderRetryCount = 0;
         continue;
       }
 
@@ -1060,11 +1061,22 @@ export async function vikingRouteWithFeedback(params: {
   }
 
   if (fb.executionResult === "context_overflow") {
-    log.info(`[viking] feedback: context_overflow, downgrading to L0`);
+    log.warn(`[viking] feedback: context_overflow, reducing to core tools + L0`);
+    const reducedTools = new Set<string>();
+    for (const core of CORE_TOOLS) {
+      if (fb.routeResult.tools.has(core)) {
+        reducedTools.add(core);
+      }
+    }
     return {
-      ...fb.routeResult,
+      tools: reducedTools.size > 0 ? reducedTools : fb.routeResult.tools,
+      files: new Set<string>(),
       promptLayer: "L0" as PromptMode,
       skillsMode: "names",
+      skipped: false,
+      needsL1: false,
+      needsL2: false,
+      l1Dates: [],
     };
   }
 

@@ -115,6 +115,7 @@ const L2_MAX_SESSIONS = 2;
 /** L2 加载限制：总输出最大字符数（约 4000 tok） */
 const L2_MAX_TOTAL_CHARS = 12000;
 const L0_MAX_TIMELINE_CHARS = 15000;
+const L1_MAX_DECISIONS_CHARS = 15000;
 
 // ========================
 // 工具函数
@@ -422,6 +423,7 @@ export async function loadL2Session(params: {
 
       const messages: Array<{ role: string; text: string }> = [];
 
+      let corruptedLines = 0;
       for (const line of lines) {
         try {
           const entry: JournalEntry = JSON.parse(line);
@@ -448,8 +450,12 @@ export async function loadL2Session(params: {
             messages.push({ role, text: text.slice(0, L2_MAX_CHARS_PER_MESSAGE) });
           }
         } catch {
-          // skip
+          corruptedLines++;
         }
+      }
+
+      if (corruptedLines > 0) {
+        log.warn(`[history] L2 session ${sid}: skipped ${corruptedLines} corrupted JSONL lines`);
       }
 
       const recent = messages.slice(-L2_MAX_MESSAGES_PER_SESSION);
@@ -964,7 +970,16 @@ export async function loadL1Decisions(params: {
     }
 
     const filteredContent = filteredLines.join("\n");
-    const prompt = `<key_decisions>\n以下是相关时间点的关键决策和技术细节：\n${filteredContent}\n</key_decisions>`;
+    const truncated =
+      filteredContent.length > L1_MAX_DECISIONS_CHARS
+        ? filteredContent.slice(-L1_MAX_DECISIONS_CHARS)
+        : filteredContent;
+    if (truncated.length < filteredContent.length) {
+      log.warn(
+        `[history] L1 tsid-filtered truncated: ${filteredContent.length} -> ${truncated.length} chars`,
+      );
+    }
+    const prompt = `<key_decisions>\n以下是相关时间点的关键决策和技术细节：\n${truncated}\n</key_decisions>`;
     log.info(
       `[history] L1 loaded (tsids: ${params.tsids.join(", ")}): ${filteredContent.length} chars`,
     );
@@ -989,7 +1004,16 @@ export async function loadL1Decisions(params: {
     }
 
     const filteredContent = matched.join("\n\n");
-    const prompt = `<key_decisions>\n以下是 ${params.dates.join(", ")} 的关键决策和技术细节：\n${filteredContent}\n</key_decisions>`;
+    const truncated =
+      filteredContent.length > L1_MAX_DECISIONS_CHARS
+        ? filteredContent.slice(-L1_MAX_DECISIONS_CHARS)
+        : filteredContent;
+    if (truncated.length < filteredContent.length) {
+      log.warn(
+        `[history] L1 date-filtered truncated: ${filteredContent.length} -> ${truncated.length} chars`,
+      );
+    }
+    const prompt = `<key_decisions>\n以下是 ${params.dates.join(", ")} 的关键决策和技术细节：\n${truncated}\n</key_decisions>`;
     log.info(
       `[history] L1 loaded (dates: ${params.dates.join(", ")}): ${filteredContent.length} chars`,
     );
@@ -997,7 +1021,16 @@ export async function loadL1Decisions(params: {
   }
 
   // 无过滤，加载全部
-  const prompt = `<key_decisions>\n以下是历史对话中提取的关键决策和技术细节：\n${fullContent}\n</key_decisions>`;
+  const truncated =
+    fullContent.length > L1_MAX_DECISIONS_CHARS
+      ? fullContent.slice(-L1_MAX_DECISIONS_CHARS)
+      : fullContent;
+  if (truncated.length < fullContent.length) {
+    log.warn(
+      `[history] L1 full-load truncated: ${fullContent.length} -> ${truncated.length} chars`,
+    );
+  }
+  const prompt = `<key_decisions>\n以下是历史对话中提取的关键决策和技术细节：\n${truncated}\n</key_decisions>`;
   log.info(`[history] L1 loaded (all): ${fullContent.length} chars`);
   return { available: true, prompt };
 }

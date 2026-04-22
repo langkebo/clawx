@@ -234,7 +234,7 @@ export function registerTasksCli(program: Command) {
 
   tasks
     .command("cleanup")
-    .description("Remove completed tasks older than 7 days")
+    .description("Remove old tasks (completed, failed, cancelled) older than 7 days")
     .option("--max-age-days <days>", "Maximum age in days", "7")
     .action(async (opts) => {
       const maxAgeDays = parseInt(opts.maxAgeDays, 10) || 7;
@@ -254,7 +254,10 @@ export function registerTasksCli(program: Command) {
       ["openclaw tasks list --status running", "List running tasks"],
       ["openclaw tasks update task_xxx --status completed", "Mark a task as completed"],
       ["openclaw tasks stats", "Show task statistics"],
-      ["openclaw tasks cleanup --max-age-days 14", "Clean up old completed tasks"],
+      [
+        "openclaw tasks cleanup --max-age-days 14",
+        "Clean up old tasks (completed, failed, cancelled)",
+      ],
     ]),
   );
 }

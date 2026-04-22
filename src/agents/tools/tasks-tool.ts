@@ -9,8 +9,11 @@ import {
   type TaskPriority,
   type TaskStatus,
 } from "../../infra/task-store.js";
+import { createSubsystemLogger } from "../../logging/subsystem.js";
 import type { AnyAgentTool } from "./common.js";
 import { jsonResult, readNumberParam, readStringParam, readStringArrayParam } from "./common.js";
+
+const log = createSubsystemLogger("tasks-tool");
 
 const VALID_STATUSES: readonly TaskStatus[] = [
   "pending",
@@ -61,7 +64,9 @@ export function createTasksTool(): AnyAgentTool {
 
       switch (action) {
         case "list": {
-          cleanupOldTasks(30 * 24 * 60 * 60 * 1000).catch(() => {});
+          cleanupOldTasks(30 * 24 * 60 * 60 * 1000).catch((err) => {
+            log.warn(`[tasks] background cleanup failed: ${String(err)}`);
+          });
           const statusStr = readStringParam(params, "status");
           const priorityStr = readStringParam(params, "priority");
           const tasks = await listTasks({
