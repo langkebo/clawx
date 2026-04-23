@@ -9,6 +9,9 @@ import { isToolResultMessage } from "./message-normalizer.ts";
 import { formatToolOutputForSidebar, getTruncatedPreview } from "./tool-helpers.ts";
 
 export function extractToolCards(message: unknown): ToolCard[] {
+  if (message == null || typeof message !== "object") {
+    return [];
+  }
   const m = message as Record<string, unknown>;
   const content = normalizeContent(m.content);
   const routeTag = typeof m._routeTag === "string" ? m._routeTag : undefined;
@@ -22,7 +25,7 @@ export function extractToolCards(message: unknown): ToolCard[] {
     if (isToolCall) {
       cards.push({
         kind: "call",
-        name: (item.name as string) ?? "tool",
+        name: typeof item.name === "string" ? item.name : "tool",
         args: coerceArgs(item.arguments ?? item.args),
         routeTag,
       });
@@ -63,8 +66,10 @@ export function renderToolCardSidebar(card: ToolCard, onOpenSidebar?: (content: 
           onOpenSidebar!(formatToolOutputForSidebar(card.text!));
           return;
         }
-        const info = `## ${display.label}\n\n${
-          detail ? `**Command:** \`${detail}\`\n\n` : ""
+        const safeLabel = display.label.replace(/[[\]`*#]/g, "");
+        const safeDetail = detail ? detail.replace(/[[\]`*#]/g, "") : "";
+        const info = `## ${safeLabel}\n\n${
+          safeDetail ? `**Command:** \`${safeDetail}\`\n\n` : ""
         }*No output — tool completed successfully.*`;
         onOpenSidebar!(info);
       }

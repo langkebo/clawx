@@ -18,22 +18,16 @@ const PROVIDER_ENV_MAP: Record<string, string> = {
   deepseek: "DEEPSEEK_API_KEY",
   kimi: "KIMI_API_KEY",
   yi: "YI_API_KEY",
-  baichuan: "BAICHUAN_API_KEY",
+  baichuan: "BAICHU_API_KEY",
 };
 
 export { PROVIDER_ENV_MAP };
 
 export function looksLikeEnvVarName(value: string): boolean {
-  return /^[A-Z][A-Z0-9_]+$/.test(value);
+  return /^[A-Z][A-Z0-9_]*$/.test(value);
 }
 
 export function resolveApiKeyFromEnv(hint?: string, providerName?: string): string {
-  if (hint && looksLikeEnvVarName(hint)) {
-    const val = process.env[hint]?.trim();
-    if (val && !looksLikeEnvVarName(val)) {
-      return val;
-    }
-  }
   if (providerName) {
     const envVar = PROVIDER_ENV_MAP[providerName.toLowerCase()];
     if (envVar) {
@@ -43,12 +37,10 @@ export function resolveApiKeyFromEnv(hint?: string, providerName?: string): stri
       }
     }
   }
-  if (!providerName) {
-    for (const envVar of Object.values(PROVIDER_ENV_MAP)) {
-      const val = process.env[envVar]?.trim();
-      if (val && !looksLikeEnvVarName(val)) {
-        return val;
-      }
+  if (hint && looksLikeEnvVarName(hint)) {
+    const val = process.env[hint]?.trim();
+    if (val && !looksLikeEnvVarName(val)) {
+      return val;
     }
   }
   return "";

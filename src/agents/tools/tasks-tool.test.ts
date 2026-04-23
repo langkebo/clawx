@@ -140,13 +140,13 @@ describe("tasks-tool", () => {
     it("rejects progress out of range (negative)", async () => {
       const result = await execute({ action: "update", taskId: "t1", progress: -1 });
       const parsed = JSON.parse((result as { content: Array<{ text: string }> }).content[0].text);
-      expect(parsed.error).toContain("Progress must be 0-100");
+      expect(parsed.error).toContain("Progress must be an integer 0-100");
     });
 
     it("rejects progress out of range (>100)", async () => {
       const result = await execute({ action: "update", taskId: "t1", progress: 101 });
       const parsed = JSON.parse((result as { content: Array<{ text: string }> }).content[0].text);
-      expect(parsed.error).toContain("Progress must be 0-100");
+      expect(parsed.error).toContain("Progress must be an integer 0-100");
     });
 
     it("accepts progress at boundary (0)", async () => {

@@ -5,10 +5,10 @@ import { stripReasoningTagsFromText } from "../../../src/shared/text/reasoning-t
 export { formatRelativeTimestamp, formatDurationHuman };
 
 export function formatMs(ms?: number | null): string {
-  if (!ms && ms !== 0) {
+  if (!Number.isFinite(ms)) {
     return "n/a";
   }
-  return new Date(ms).toLocaleString();
+  return new Date(ms!).toLocaleString();
 }
 
 export function formatList(values?: Array<string | null | undefined>): string {

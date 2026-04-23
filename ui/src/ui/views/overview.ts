@@ -258,7 +258,7 @@ export function renderOverview(props: OverviewProps) {
     <section class="grid grid-cols-3" style="margin-top: 18px;">
       <div class="card stat-card">
         <div class="stat-label">${t("overview.stats.instances")}</div>
-        <div class="stat-value">${props.presenceCount}</div>
+        <div class="stat-value">${Number.isFinite(props.presenceCount) ? props.presenceCount : t("common.na")}</div>
         <div class="muted">${t("overview.stats.instancesHint")}</div>
       </div>
       <div class="card stat-card">

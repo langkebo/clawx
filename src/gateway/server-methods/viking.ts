@@ -13,17 +13,30 @@ function classifyVikingError(err: unknown): {
   code: (typeof ErrorCodes)[keyof typeof ErrorCodes];
   retryable: boolean;
 } {
+  if (err == null || typeof err === "string" || typeof err === "number") {
+    return { code: ErrorCodes.UNAVAILABLE, retryable: false };
+  }
   const classified = classifyProviderError(err);
   switch (classified.type) {
     case "rate_limit":
     case "transient":
       return { code: ErrorCodes.UNAVAILABLE, retryable: true };
     case "auth":
+      return { code: ErrorCodes.UNAVAILABLE, retryable: false };
     case "billing":
       return { code: ErrorCodes.INVALID_REQUEST, retryable: false };
+    case "format":
+      return { code: ErrorCodes.INVALID_REQUEST, retryable: false };
     default:
-      return { code: ErrorCodes.UNAVAILABLE, retryable: classified.retryable };
+      return { code: ErrorCodes.UNAVAILABLE, retryable: false };
   }
+}
+
+function safeErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message.slice(0, 200);
+  }
+  return "internal error";
 }
 
 export const vikingHandlers: GatewayRequestHandlers = {
@@ -36,21 +49,21 @@ export const vikingHandlers: GatewayRequestHandlers = {
       respond(
         false,
         undefined,
-        errorShape(classified.code, String(err), { retryable: classified.retryable }),
+        errorShape(classified.code, safeErrorMessage(err), { retryable: classified.retryable }),
       );
     }
   },
-  "viking.cache.clear": async ({ respond }) => {
+  "viking.cache.clear": async ({ respond, client }) => {
     try {
       clearRoutingCache();
-      log.info("[viking] cache cleared via RPC");
+      log.info(`[viking] cache cleared via RPC by ${client?.connId ?? "unknown"}`);
       respond(true, { cleared: true }, undefined);
     } catch (err) {
       const classified = classifyVikingError(err);
       respond(
         false,
         undefined,
-        errorShape(classified.code, String(err), { retryable: classified.retryable }),
+        errorShape(classified.code, safeErrorMessage(err), { retryable: classified.retryable }),
       );
     }
   },
