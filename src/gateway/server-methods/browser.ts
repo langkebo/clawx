@@ -10,6 +10,7 @@ import { isNodeCommandAllowed, resolveNodeCommandAllowlist } from "../node-comma
 import type { NodeSession } from "../node-registry.js";
 import { ErrorCodes, errorShape } from "../protocol/index.js";
 import { respondUnavailableOnNodeInvokeError, safeParseJson } from "./nodes.helpers.js";
+import { safeErrorMessage } from "./safe-error.js";
 import type { GatewayRequestHandlers } from "./types.js";
 
 type BrowserRequestParams = {
@@ -157,7 +158,7 @@ export const browserHandlers: GatewayRequestHandlers = {
         nodes: context.nodeRegistry.listConnected(),
       });
     } catch (err) {
-      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, String(err)));
+      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, safeErrorMessage(err)));
       return;
     }
 
@@ -219,7 +220,7 @@ export const browserHandlers: GatewayRequestHandlers = {
     try {
       dispatcher = createBrowserRouteDispatcher(createBrowserControlContext());
     } catch (err) {
-      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, String(err)));
+      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, safeErrorMessage(err)));
       return;
     }
 

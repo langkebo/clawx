@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { CronRunStatus, CronRunTelemetry } from "./types.js";
@@ -19,6 +20,10 @@ export type CronRunLogEntry = {
 export function resolveCronRunLogPath(params: { storePath: string; jobId: string }) {
   const storePath = path.resolve(params.storePath);
   const dir = path.dirname(storePath);
+  const hasInvalidJobId = params.jobId.includes("/") || params.jobId.includes("\\") || params.jobId.includes("..") || Array.from(params.jobId).some((c) => c.charCodeAt(0) <= 0x1f);
+  if (hasInvalidJobId) {
+    throw new Error("Invalid jobId");
+  }
   return path.join(dir, "runs", `${params.jobId}.jsonl`);
 }
 
@@ -36,7 +41,7 @@ async function pruneIfNeeded(filePath: string, opts: { maxBytes: number; keepLin
     .map((l) => l.trim())
     .filter(Boolean);
   const kept = lines.slice(Math.max(0, lines.length - opts.keepLines));
-  const tmp = `${filePath}.${process.pid}.${Math.random().toString(16).slice(2)}.tmp`;
+  const tmp = `${filePath}.${process.pid}.${crypto.randomUUID().slice(0, 8)}.tmp`;
   await fs.writeFile(tmp, `${kept.join("\n")}\n`, "utf-8");
   await fs.rename(tmp, filePath);
 }

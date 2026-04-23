@@ -11,6 +11,7 @@ import {
   validateExecApprovalRequestParams,
   validateExecApprovalResolveParams,
 } from "../protocol/index.js";
+import { safeErrorMessage } from "./safe-error.js";
 import type { GatewayRequestHandlers } from "./types.js";
 
 export function createExecApprovalHandlers(
@@ -82,7 +83,7 @@ export function createExecApprovalHandlers(
         respond(
           false,
           undefined,
-          errorShape(ErrorCodes.INVALID_REQUEST, `registration failed: ${String(err)}`),
+          errorShape(ErrorCodes.INVALID_REQUEST, `registration failed: ${safeErrorMessage(err)}`),
         );
         return;
       }
@@ -104,7 +105,9 @@ export function createExecApprovalHandlers(
           expiresAtMs: record.expiresAtMs,
         })
         .catch((err) => {
-          context.logGateway?.error?.(`exec approvals: forward request failed: ${String(err)}`);
+          context.logGateway?.error?.(
+            `exec approvals: forward request failed: ${safeErrorMessage(err)}`,
+          );
         });
 
       // Only send immediate "accepted" response when twoPhase is requested.
@@ -200,7 +203,9 @@ export function createExecApprovalHandlers(
       void opts?.forwarder
         ?.handleResolved({ id: p.id, decision, resolvedBy, ts: Date.now() })
         .catch((err) => {
-          context.logGateway?.error?.(`exec approvals: forward resolve failed: ${String(err)}`);
+          context.logGateway?.error?.(
+            `exec approvals: forward resolve failed: ${safeErrorMessage(err)}`,
+          );
         });
       respond(true, { ok: true }, undefined);
     },

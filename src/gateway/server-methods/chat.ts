@@ -42,6 +42,7 @@ import {
 import { formatForLog } from "../ws-log.js";
 import { injectTimestamp, timestampOptsFromConfig } from "./agent-timestamp.js";
 import { normalizeRpcAttachmentsToChatAttachments } from "./attachment-normalize.js";
+import { safeErrorMessage } from "./safe-error.js";
 import type { GatewayRequestContext, GatewayRequestHandlers } from "./types.js";
 
 type TranscriptAppendResult = {
@@ -784,7 +785,7 @@ export const chatHandlers: GatewayRequestHandlers = {
         parsedMessage = parsed.message;
         parsedImages = parsed.images;
       } catch (err) {
-        respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, String(err)));
+        respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, safeErrorMessage(err)));
         return;
       }
     }
@@ -997,14 +998,14 @@ export const chatHandlers: GatewayRequestHandlers = {
           });
         })
         .catch((err) => {
-          const error = errorShape(ErrorCodes.UNAVAILABLE, String(err));
+          const error = errorShape(ErrorCodes.UNAVAILABLE, safeErrorMessage(err));
           context.dedupe.set(`chat:${clientRunId}`, {
             ts: Date.now(),
             ok: false,
             payload: {
               runId: clientRunId,
               status: "error" as const,
-              summary: String(err),
+              summary: safeErrorMessage(err),
             },
             error,
           });
@@ -1012,7 +1013,7 @@ export const chatHandlers: GatewayRequestHandlers = {
             context,
             runId: clientRunId,
             sessionKey: rawSessionKey,
-            errorMessage: String(err),
+            errorMessage: safeErrorMessage(err),
           });
         })
         .finally(() => {
@@ -1020,11 +1021,11 @@ export const chatHandlers: GatewayRequestHandlers = {
         });
     } catch (err) {
       context.chatAbortControllers.delete(clientRunId);
-      const error = errorShape(ErrorCodes.UNAVAILABLE, String(err));
+      const error = errorShape(ErrorCodes.UNAVAILABLE, safeErrorMessage(err));
       const payload = {
         runId: clientRunId,
         status: "error" as const,
-        summary: String(err),
+        summary: safeErrorMessage(err),
       };
       context.dedupe.set(`chat:${clientRunId}`, {
         ts: Date.now(),

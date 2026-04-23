@@ -137,6 +137,11 @@ export function createActiveMemorySaveTool(options: {
       const content = readStringParam(params, "content", { required: true });
       const category = readStringParam(params, "category") ?? "fact";
 
+      const hasInvalidChars = category.includes("/") || category.includes("\\") || category.includes("..") || Array.from(category).some((c) => c.charCodeAt(0) <= 0x1f);
+      if (hasInvalidChars) {
+        return jsonResult({ saved: false, error: "Invalid category name" });
+      }
+
       const { manager, error } = await getMemorySearchManager({ cfg, agentId });
       if (!manager) {
         return jsonResult({ saved: false, disabled: true, error });
@@ -171,7 +176,11 @@ export function createActiveMemorySaveTool(options: {
         if (typeof manager.sync === "function") {
           try {
             await manager.sync();
-          } catch {}
+          } catch (err: unknown) {
+            console.warn(
+              `active-memory: sync failed after save: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
         }
 
         return jsonResult({

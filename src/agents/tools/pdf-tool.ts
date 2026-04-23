@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Type } from "@sinclair/typebox";
+import { isWithinDir } from "../../infra/path-safety.js";
 import { extractFileContentFromSource } from "../../media/input-files.js";
 import type { AnyAgentTool } from "./common.js";
 import { jsonResult, readNumberParam, readStringParam } from "./common.js";
@@ -46,7 +47,11 @@ export function createPdfTool(options?: {
 
       try {
         if (filePath) {
-          const resolvedPath = path.resolve(options?.workspaceDir ?? process.cwd(), filePath);
+          const workspaceRoot = options?.workspaceDir ?? process.cwd();
+          const resolvedPath = path.resolve(workspaceRoot, filePath);
+          if (!isWithinDir(workspaceRoot, resolvedPath)) {
+            return jsonResult({ error: "Path must be within the workspace directory" });
+          }
           const buffer = await fs.readFile(resolvedPath);
           const result = await extractFileContentFromSource({
             source: {

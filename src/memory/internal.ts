@@ -22,7 +22,13 @@ export type MemoryChunk = {
 export function ensureDir(dir: string): string {
   try {
     fsSync.mkdirSync(dir, { recursive: true });
-  } catch {}
+  } catch (err: unknown) {
+    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code !== "EEXIST") {
+      console.warn(
+        `memory: failed to create directory ${dir}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
   return dir;
 }
 

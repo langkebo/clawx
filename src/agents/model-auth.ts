@@ -190,7 +190,11 @@ export async function resolveApiKeyForProvider(params: {
           mode: mode === "oauth" ? "oauth" : mode === "token" ? "token" : "api-key",
         };
       }
-    } catch {}
+    } catch (err: unknown) {
+      console.debug(
+        `model-auth: profile ${candidate} resolution failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   const envResolved = resolveEnvApiKey(provider);

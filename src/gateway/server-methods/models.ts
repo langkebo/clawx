@@ -4,6 +4,7 @@ import {
   formatValidationErrors,
   validateModelsListParams,
 } from "../protocol/index.js";
+import { safeErrorMessage } from "./safe-error.js";
 import type { GatewayRequestHandlers } from "./types.js";
 
 export const modelsHandlers: GatewayRequestHandlers = {
@@ -23,7 +24,7 @@ export const modelsHandlers: GatewayRequestHandlers = {
       const models = await context.loadGatewayModelCatalog();
       respond(true, { models }, undefined);
     } catch (err) {
-      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, String(err)));
+      respond(false, undefined, errorShape(ErrorCodes.UNAVAILABLE, safeErrorMessage(err)));
     }
   },
 };

@@ -8,6 +8,7 @@ import {
   formatValidationErrors,
   validateLogsTailParams,
 } from "../protocol/index.js";
+import { safeErrorMessage } from "./safe-error.js";
 import type { GatewayRequestHandlers } from "./types.js";
 
 const DEFAULT_LIMIT = 500;
@@ -173,7 +174,7 @@ export const logsHandlers: GatewayRequestHandlers = {
       respond(
         false,
         undefined,
-        errorShape(ErrorCodes.UNAVAILABLE, `log read failed: ${String(err)}`),
+        errorShape(ErrorCodes.UNAVAILABLE, `log read failed: ${safeErrorMessage(err)}`),
       );
     }
   },

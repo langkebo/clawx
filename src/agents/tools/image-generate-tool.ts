@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { Type } from "@sinclair/typebox";
 import type { OpenClawConfig } from "../../config/config.js";
+import { isWithinDir } from "../../infra/path-safety.js";
 import { resolveUserPath } from "../../utils.js";
 import { normalizeWorkspaceDir } from "../workspace-dir.js";
 import type { AnyAgentTool } from "./common.js";
@@ -126,6 +127,11 @@ export function createImageGenerateTool(options?: {
       const outputDir = readStringParam(params, "outputDir")
         ? resolveUserPath(readStringParam(params, "outputDir")!)
         : (normalizeWorkspaceDir(options?.workspaceDir) ?? process.cwd());
+
+      const workspaceRoot = normalizeWorkspaceDir(options?.workspaceDir) ?? process.cwd();
+      if (!isWithinDir(workspaceRoot, outputDir)) {
+        return jsonResult({ error: "outputDir must be within the workspace directory" });
+      }
 
       try {
         await fs.mkdir(outputDir, { recursive: true });

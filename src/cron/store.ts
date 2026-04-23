@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import JSON5 from "json5";
@@ -49,7 +50,7 @@ export async function loadCronStore(storePath: string): Promise<CronStoreFile> {
 
 export async function saveCronStore(storePath: string, store: CronStoreFile) {
   await fs.promises.mkdir(path.dirname(storePath), { recursive: true });
-  const tmp = `${storePath}.${process.pid}.${Math.random().toString(16).slice(2)}.tmp`;
+  const tmp = `${storePath}.${process.pid}.${crypto.randomUUID().slice(0, 8)}.tmp`;
   const json = JSON.stringify(store, null, 2);
   await fs.promises.writeFile(tmp, json, "utf-8");
   await fs.promises.rename(tmp, storePath);

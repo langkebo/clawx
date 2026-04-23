@@ -48,6 +48,7 @@ import { formatForLog } from "../ws-log.js";
 import { waitForAgentJob } from "./agent-job.js";
 import { injectTimestamp, timestampOptsFromConfig } from "./agent-timestamp.js";
 import { normalizeRpcAttachmentsToChatAttachments } from "./attachment-normalize.js";
+import { safeErrorMessage } from "./safe-error.js";
 import { sessionsHandlers } from "./sessions.js";
 import type { GatewayRequestHandlerOptions, GatewayRequestHandlers } from "./types.js";
 
@@ -143,7 +144,7 @@ async function runSessionResetFromAgent(params: {
       } catch (err: unknown) {
         settle({
           ok: false,
-          error: errorShape(ErrorCodes.UNAVAILABLE, String(err)),
+          error: errorShape(ErrorCodes.UNAVAILABLE, safeErrorMessage(err)),
         });
       }
     })();
@@ -227,7 +228,7 @@ export const agentHandlers: GatewayRequestHandlers = {
         message = parsed.message.trim();
         images = parsed.images;
       } catch (err) {
-        respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, String(err)));
+        respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, safeErrorMessage(err)));
         return;
       }
     }
@@ -578,11 +579,11 @@ export const agentHandlers: GatewayRequestHandlers = {
         respond(true, payload, undefined, { runId });
       })
       .catch((err) => {
-        const error = errorShape(ErrorCodes.UNAVAILABLE, String(err));
+        const error = errorShape(ErrorCodes.UNAVAILABLE, safeErrorMessage(err));
         const payload = {
           runId,
           status: "error" as const,
-          summary: String(err),
+          summary: safeErrorMessage(err),
         };
         context.dedupe.set(`agent:${idem}`, {
           ts: Date.now(),
