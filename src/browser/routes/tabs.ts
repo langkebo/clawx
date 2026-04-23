@@ -119,6 +119,15 @@ export function registerBrowserTabRoutes(app: BrowserRouteRegistrar, ctx: Browse
     if (url.length > 2048) {
       return jsonError(res, 400, "url too long (max 2048 chars)");
     }
+    const allowedSchemes = ["http:", "https:"];
+    try {
+      const parsed = new URL(url);
+      if (!allowedSchemes.includes(parsed.protocol)) {
+        return jsonError(res, 400, `url scheme not allowed: ${parsed.protocol}`);
+      }
+    } catch {
+      return jsonError(res, 400, "invalid url format");
+    }
 
     await withTabsProfileRoute({
       req,
@@ -172,6 +181,7 @@ export function registerBrowserTabRoutes(app: BrowserRouteRegistrar, ctx: Browse
       "new",
       "focus",
       "close",
+      "select",
       "navigate",
       "screenshot",
       "click",
@@ -204,6 +214,9 @@ export function registerBrowserTabRoutes(app: BrowserRouteRegistrar, ctx: Browse
         }
 
         if (action === "close") {
+          if (typeof index !== "number") {
+            return jsonError(res, 400, "index is required for close action");
+          }
           const tabs = await profileCtx.listTabs();
           const target = resolveIndexedTab(tabs, index);
           if (!target) {

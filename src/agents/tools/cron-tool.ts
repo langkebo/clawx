@@ -332,7 +332,10 @@ Use jobId as the canonical identifier; id is accepted for compatibility. Use con
           if (!params.job || typeof params.job !== "object") {
             throw new Error("job required");
           }
-          const job = normalizeCronJobCreate(params.job) ?? params.job;
+          const job = normalizeCronJobCreate(params.job);
+          if (!job) {
+            throw new Error("invalid job parameters");
+          }
           if (job && typeof job === "object") {
             const cfg = loadConfig();
             const { mainKey, alias } = resolveMainSessionAlias(cfg);
@@ -426,7 +429,10 @@ Use jobId as the canonical identifier; id is accepted for compatibility. Use con
           if (!params.patch || typeof params.patch !== "object") {
             throw new Error("patch required");
           }
-          const patch = normalizeCronJobPatch(params.patch) ?? params.patch;
+          const patch = normalizeCronJobPatch(params.patch);
+          if (!patch) {
+            throw new Error("invalid patch parameters");
+          }
           return jsonResult(
             await callGatewayTool("cron.update", gatewayOpts, {
               id,

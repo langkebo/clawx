@@ -14,6 +14,9 @@ import {
 } from "../infra/task-store.js";
 import { formatHelpExamples } from "./help-format.js";
 
+const VALID_STATUSES = new Set<string>(["pending", "running", "completed", "failed", "cancelled"]);
+const VALID_PRIORITIES = new Set<string>(["low", "medium", "high"]);
+
 const STATUS_COLORS: Record<TaskStatus, (s: string) => string> = {
   pending: chalk.yellow,
   running: chalk.blue,
@@ -32,7 +35,7 @@ function formatTaskRow(task: Task): string {
   const statusFn = STATUS_COLORS[task.status] ?? chalk.white;
   const priorityIcon = PRIORITY_ICONS[task.priority] ?? "⚪";
   const age = formatAge(task.updatedAt);
-  return `${priorityIcon} ${statusFn(task.status.padEnd(10))} ${task.id}  ${task.title}  ${chalk.gray(age)}`;
+  return `${priorityIcon} ${statusFn(String(task.status).padEnd(10))} ${task.id}  ${task.title}  ${chalk.gray(age)}`;
 }
 
 function formatAge(timestampMs: number): string {
@@ -100,11 +103,31 @@ export function registerTasksCli(program: Command) {
     .option("-l, --limit <number>", "Max tasks to show", "20")
     .option("--json", "Output as JSON")
     .action(async (opts) => {
+      const status = VALID_STATUSES.has(opts.status) ? (opts.status as TaskStatus) : undefined;
+      const priority = VALID_PRIORITIES.has(opts.priority)
+        ? (opts.priority as TaskPriority)
+        : undefined;
+      if (opts.status && !status) {
+        console.error(
+          chalk.red(`Invalid status: ${opts.status}. Valid: ${[...VALID_STATUSES].join(", ")}`),
+        );
+        process.exitCode = 1;
+        return;
+      }
+      if (opts.priority && !priority) {
+        console.error(
+          chalk.red(
+            `Invalid priority: ${opts.priority}. Valid: ${[...VALID_PRIORITIES].join(", ")}`,
+          ),
+        );
+        process.exitCode = 1;
+        return;
+      }
       const tasks = await listTasks({
-        status: opts.status as TaskStatus | undefined,
-        priority: opts.priority as TaskPriority | undefined,
+        status,
+        priority,
         tag: opts.tag,
-        limit: parseInt(opts.limit, 10) || 20,
+        limit: Math.max(1, Math.min(100, parseInt(opts.limit, 10) || 20)),
       });
       if (opts.json) {
         console.log(JSON.stringify(tasks, null, 2));
@@ -145,10 +168,11 @@ export function registerTasksCli(program: Command) {
     .option("-p, --priority <priority>", "Priority (low|medium|high)", "medium")
     .option("-t, --tags <tags>", "Comma-separated tags")
     .action(async (title: string, opts) => {
+      const priority: TaskPriority = VALID_PRIORITIES.has(opts.priority) ? opts.priority : "medium";
       const task = await createTask({
         title,
         description: opts.description,
-        priority: (opts.priority as TaskPriority) ?? "medium",
+        priority,
         tags: opts.tags
           ?.split(",")
           .map((t: string) => t.trim())
@@ -172,9 +196,25 @@ export function registerTasksCli(program: Command) {
         Pick<Task, "title" | "description" | "status" | "priority" | "error" | "progress">
       > = {};
       if (opts.status) {
+        if (!VALID_STATUSES.has(opts.status)) {
+          console.error(
+            chalk.red(`Invalid status: ${opts.status}. Valid: ${[...VALID_STATUSES].join(", ")}`),
+          );
+          process.exitCode = 1;
+          return;
+        }
         updates.status = opts.status as TaskStatus;
       }
       if (opts.priority) {
+        if (!VALID_PRIORITIES.has(opts.priority)) {
+          console.error(
+            chalk.red(
+              `Invalid priority: ${opts.priority}. Valid: ${[...VALID_PRIORITIES].join(", ")}`,
+            ),
+          );
+          process.exitCode = 1;
+          return;
+        }
         updates.priority = opts.priority as TaskPriority;
       }
       if (opts.title) {
@@ -187,7 +227,13 @@ export function registerTasksCli(program: Command) {
         updates.error = opts.error;
       }
       if (opts.progress != null) {
-        updates.progress = parseInt(opts.progress, 10);
+        const progress = parseInt(opts.progress, 10);
+        if (!Number.isInteger(progress) || progress < 0 || progress > 100) {
+          console.error(chalk.red(`Progress must be an integer 0-100, got: ${opts.progress}`));
+          process.exitCode = 1;
+          return;
+        }
+        updates.progress = progress;
       }
 
       const updated = await updateTask(taskId, updates);
@@ -237,7 +283,7 @@ export function registerTasksCli(program: Command) {
     .description("Remove old tasks (completed, failed, cancelled) older than 7 days")
     .option("--max-age-days <days>", "Maximum age in days", "7")
     .action(async (opts) => {
-      const maxAgeDays = parseInt(opts.maxAgeDays, 10) || 7;
+      const maxAgeDays = Math.max(1, parseInt(opts.maxAgeDays, 10) || 7);
       const deleted = await cleanupOldTasks(maxAgeDays * 24 * 60 * 60 * 1000);
       console.log(
         chalk.green(`✓ Cleaned up ${deleted} old task(s) older than ${maxAgeDays} day(s)`),

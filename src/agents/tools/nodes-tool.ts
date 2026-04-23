@@ -93,6 +93,21 @@ const NodesToolSchema = Type.Object({
   invokeParamsJson: Type.Optional(Type.String()),
 });
 
+function sanitizeOutPath(outPath: string): string | null {
+  if (outPath.includes("..") || outPath.includes("\0")) {
+    return null;
+  }
+  const normalized = outPath.replace(/\\/g, "/");
+  if (
+    normalized.startsWith("/etc/") ||
+    normalized.startsWith("/proc/") ||
+    normalized.startsWith("/sys/")
+  ) {
+    return null;
+  }
+  return outPath;
+}
+
 export function createNodesTool(options?: {
   agentSessionKey?: string;
   config?: OpenClawConfig;
@@ -347,8 +362,11 @@ export function createNodesTool(options?: {
             const payload = parseScreenRecordPayload(raw?.payload);
             const filePath =
               typeof params.outPath === "string" && params.outPath.trim()
-                ? params.outPath.trim()
+                ? sanitizeOutPath(params.outPath.trim())
                 : screenRecordTempPath({ ext: payload.format || "mp4" });
+            if (!filePath) {
+              return jsonResult({ error: "outPath contains invalid characters or path traversal" });
+            }
             const written = await writeScreenRecordToFile(filePath, payload.base64);
             return {
               content: [{ type: "text", text: `FILE:${written.path}` }],

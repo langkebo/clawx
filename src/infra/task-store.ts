@@ -235,6 +235,10 @@ export async function getTaskStats(): Promise<{
 }
 
 export async function cleanupOldTasks(maxAgeMs: number = 7 * 24 * 60 * 60 * 1000): Promise<number> {
+  if (maxAgeMs <= 0) {
+    log.warn(`cleanupOldTasks: invalid maxAgeMs=${maxAgeMs}, using default 7 days`);
+    maxAgeMs = 7 * 24 * 60 * 60 * 1000;
+  }
   const tasks = await listTasks();
   const cutoff = Date.now() - maxAgeMs;
   let deleted = 0;
