@@ -315,7 +315,7 @@ function ensureTranscriptFile(params: { transcriptPath: string; sessionId: strin
     });
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: safeErrorMessage(err) };
   }
 }
 
@@ -426,7 +426,7 @@ function appendAssistantTranscriptMessage(params: {
     const messageId = sessionManager.appendMessage(messageBody);
     return { ok: true, messageId, message: messageBody };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, error: safeErrorMessage(err) };
   }
 }
 

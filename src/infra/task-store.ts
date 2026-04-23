@@ -29,6 +29,41 @@ export type Task = {
 
 const TASKS_DIR_NAME = "tasks";
 
+const VALID_TASK_STATUSES: ReadonlySet<string> = new Set([
+  "pending",
+  "running",
+  "completed",
+  "failed",
+  "cancelled",
+]);
+const VALID_TASK_PRIORITIES: ReadonlySet<string> = new Set(["low", "medium", "high"]);
+
+function isValidTaskData(data: unknown): data is Task {
+  if (!data || typeof data !== "object") {
+    return false;
+  }
+  const d = data as Record<string, unknown>;
+  if (typeof d.id !== "string" || !d.id) {
+    return false;
+  }
+  if (typeof d.title !== "string") {
+    return false;
+  }
+  if (!VALID_TASK_STATUSES.has(d.status as string)) {
+    return false;
+  }
+  if (!VALID_TASK_PRIORITIES.has(d.priority as string)) {
+    return false;
+  }
+  if (typeof d.createdAt !== "number" || !Number.isFinite(d.createdAt)) {
+    return false;
+  }
+  if (typeof d.updatedAt !== "number" || !Number.isFinite(d.updatedAt)) {
+    return false;
+  }
+  return true;
+}
+
 function getTasksDir(): string {
   return path.join(resolveStateDir(), TASKS_DIR_NAME);
 }
@@ -104,12 +139,16 @@ export async function getTask(taskId: string): Promise<Task | null> {
   try {
     const content = await fs.readFile(getTaskFilePath(taskId), "utf-8");
     const parsed = JSON.parse(content);
-    if (!parsed || typeof parsed !== "object" || typeof parsed.id !== "string") {
-      log.warn(`task file corrupted, skipping: ${taskId}`);
+    if (!isValidTaskData(parsed)) {
+      log.warn(`task file corrupted or invalid, skipping: ${taskId}`);
       return null;
     }
-    return parsed as Task;
-  } catch {
+    return parsed;
+  } catch (err: unknown) {
+    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
+      return null;
+    }
+    log.warn(`task read failed: ${taskId}: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
 }
@@ -158,7 +197,11 @@ export async function deleteTask(taskId: string): Promise<boolean> {
     await fs.unlink(getTaskFilePath(taskId));
     log.info(`task deleted: ${taskId}`);
     return true;
-  } catch {
+  } catch (err: unknown) {
+    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
+      return false;
+    }
+    log.warn(`task delete failed: ${taskId}: ${err instanceof Error ? err.message : String(err)}`);
     return false;
   }
 }
@@ -178,8 +221,9 @@ export async function listTasks(options?: {
     jsonFiles.map(async (file) => {
       try {
         const content = await fs.readFile(path.join(getTasksDir(), file), "utf-8");
-        const task = JSON.parse(content) as Task;
-        if (!task || typeof task !== "object" || typeof task.id !== "string") {
+        const task = JSON.parse(content);
+        if (!isValidTaskData(task)) {
+          log.warn(`task file corrupted or invalid, skipping: ${file}`);
           return null;
         }
         if (options?.status && task.status !== options.status) {
@@ -195,7 +239,10 @@ export async function listTasks(options?: {
           return null;
         }
         return task;
-      } catch {
+      } catch (err: unknown) {
+        log.warn(
+          `task file read failed: ${file}: ${err instanceof Error ? err.message : String(err)}`,
+        );
         return null;
       }
     }),

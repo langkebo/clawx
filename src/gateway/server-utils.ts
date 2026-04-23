@@ -33,8 +33,9 @@ export function formatError(err: unknown): string {
     return `status=${statusText} code=${codeText}`;
   }
   try {
-    return JSON.stringify(err, null, 2);
+    const json = JSON.stringify(err, null, 2);
+    return json.length > 500 ? json.slice(0, 500) + "..." : json;
   } catch {
-    return String(err);
+    return "unknown error";
   }
 }

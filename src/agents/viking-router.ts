@@ -40,6 +40,10 @@ function readVikingConfigInner() {
     parallelRouting: typeof v?.parallelRouting === "boolean" ? v.parallelRouting : true,
     feedbackLoop: typeof v?.feedbackLoop === "boolean" ? v.feedbackLoop : true,
     routingModel: typeof v?.routingModel === "string" ? v.routingModel : undefined,
+    routingProvider: typeof v?.routingProvider === "string" ? v.routingProvider : undefined,
+    simpleModel: typeof v?.simpleModel === "string" ? v.simpleModel : undefined,
+    moderateModel: typeof v?.moderateModel === "string" ? v.moderateModel : undefined,
+    complexModel: typeof v?.complexModel === "string" ? v.complexModel : undefined,
   };
 }
 
@@ -60,15 +64,37 @@ interface CacheEntry {
 
 const routingCache = new Map<string, CacheEntry>();
 
-function getCacheKey(prompt: string, toolNames: string[]): string {
+function getCacheKey(
+  prompt: string,
+  toolNames: string[],
+  extra?: { timeline?: string; fileNames?: string[]; skills?: string[] },
+): string {
   const hash = createHash("md5");
   hash.update(prompt);
   hash.update(toolNames.toSorted().join(","));
+  if (extra?.timeline) {
+    hash.update(extra.timeline);
+  }
+  if (extra?.fileNames?.length) {
+    hash.update(extra.fileNames.toSorted().join(","));
+  }
+  if (extra?.skills?.length) {
+    hash.update(
+      extra.skills
+        .map((s) => s)
+        .toSorted()
+        .join(","),
+    );
+  }
   return hash.digest("hex");
 }
 
-function getCachedResult(prompt: string, toolNames: string[]): VikingRouteResult | null {
-  const key = getCacheKey(prompt, toolNames);
+function getCachedResult(
+  prompt: string,
+  toolNames: string[],
+  extra?: { timeline?: string; fileNames?: string[]; skills?: string[] },
+): VikingRouteResult | null {
+  const key = getCacheKey(prompt, toolNames, extra);
   const entry = routingCache.get(key);
   if (entry && Date.now() - entry.timestamp < readVikingConfig().cacheTtlMs) {
     cacheHits++;
@@ -84,14 +110,19 @@ function getCachedResult(prompt: string, toolNames: string[]): VikingRouteResult
   return null;
 }
 
-function setCachedResult(prompt: string, toolNames: string[], result: VikingRouteResult): void {
+function setCachedResult(
+  prompt: string,
+  toolNames: string[],
+  result: VikingRouteResult,
+  extra?: { timeline?: string; fileNames?: string[]; skills?: string[] },
+): void {
   if (routingCache.size >= readVikingConfig().cacheMaxSize) {
     const oldestKey = routingCache.keys().next().value;
     if (oldestKey) {
       routingCache.delete(oldestKey);
     }
   }
-  const key = getCacheKey(prompt, toolNames);
+  const key = getCacheKey(prompt, toolNames, extra);
   routingCache.set(key, { result, timestamp: Date.now() });
 }
 
@@ -101,7 +132,12 @@ export function clearRoutingCache(): void {
   cachedWorkspaceRulesDir = null;
   cachedVikingConfig = null;
   cachedVikingConfigTs = 0;
-  log.info("[viking] routing cache and rule cache cleared");
+  totalRoutes = 0;
+  ruleHits = 0;
+  rerouteCount = 0;
+  cacheHits = 0;
+  cacheMisses = 0;
+  log.info("[viking] routing cache, rule cache, and stats cleared");
 }
 
 export function invalidateCacheForTool(toolName: string): void {
@@ -452,7 +488,7 @@ export function classifyProviderError(err: unknown): {
   message: string;
 } {
   if (!(err instanceof Error)) {
-    return { type: "unknown", retryable: false, message: String(err) };
+    return { type: "unknown", retryable: false, message: "unknown error" };
   }
   const msg = err.message.toLowerCase();
   if (msg.includes("429") || msg.includes("rate limit")) {
@@ -498,7 +534,7 @@ async function callRoutingModel(params: {
       const currentProvider = params.provider;
       if (currentProvider === lastProviderAttempted) {
         sameProviderRetryCount++;
-        if (sameProviderRetryCount > FAILOVER_CONFIG.maxSameProviderRetries) {
+        if (sameProviderRetryCount >= FAILOVER_CONFIG.maxSameProviderRetries) {
           log.info(
             `[viking] same provider retry limit (${FAILOVER_CONFIG.maxSameProviderRetries}) reached for ${currentProvider}, aborting`,
           );
@@ -606,7 +642,9 @@ async function callRoutingModel(params: {
           responseText = data.choices?.[0]?.message?.content ?? "";
           break;
         } catch (err) {
-          log.info(`[viking] routing call failed (temp=${temp}): ${String(err)}`);
+          log.info(
+            `[viking] routing call failed (temp=${temp}): ${err instanceof Error ? err.message : "unknown"}`,
+          );
 
           if (isRetryable(err)) {
             const cooldown = Math.min(
@@ -681,7 +719,9 @@ async function callRoutingModel(params: {
         needsL2: parsed.needsL2 === true,
       };
     } catch (err) {
-      log.info(`[viking] routing attempt ${attempt + 1} failed: ${String(err)}`);
+      log.info(
+        `[viking] routing attempt ${attempt + 1} failed: ${err instanceof Error ? err.message : "unknown"}`,
+      );
 
       if (isRetryable(err)) {
         const cooldown = Math.min(
@@ -735,6 +775,8 @@ export async function vikingRoute(params: {
   provider: string;
   /** L0 时间线原始文本，供路由模型判断是否需要 L1/L2 */
   timeline?: string;
+  /** 工作区目录，用于加载 workspace 级别的路由规则 */
+  workspaceDir?: string;
 }): Promise<VikingRouteResult> {
   const allToolNames = new Set(params.tools.map((t) => t.name));
   const allFileNames = new Set(params.fileNames);
@@ -756,7 +798,7 @@ export async function vikingRoute(params: {
   if (!params.prompt || params.prompt.trim().length === 0) {
     return {
       tools: new Set(CORE_TOOLS),
-      files: new Set<string>(),
+      files: new Set(["SOUL.md", "IDENTITY.md", "USER.md"]),
       promptLayer: "L0" as PromptMode,
       skillsMode: "names",
       skipped: false,
@@ -766,7 +808,12 @@ export async function vikingRoute(params: {
     };
   }
 
-  const cached = getCachedResult(params.prompt, toolNameList);
+  const cacheExtra = {
+    timeline: params.timeline,
+    fileNames: params.fileNames,
+    skills: params.skills?.map((s) => s.name),
+  };
+  const cached = getCachedResult(params.prompt, toolNameList, cacheExtra);
   if (cached) {
     incrementRouteStats({});
     return cached;
@@ -778,10 +825,11 @@ export async function vikingRoute(params: {
       fileNames: params.fileNames,
       promptLength: params.prompt.length,
       hasFileContext: params.fileNames.length > 0,
+      workspaceDir: params.workspaceDir,
     });
     if (ruleResult) {
       incrementRouteStats({ ruleHit: true });
-      setCachedResult(params.prompt, toolNameList, ruleResult);
+      setCachedResult(params.prompt, toolNameList, ruleResult, cacheExtra);
       log.info(
         `[viking] rule engine hit: layer=${ruleResult.promptLayer} tools=[${[...ruleResult.tools].join(",")}]`,
       );
@@ -898,7 +946,7 @@ export async function vikingRoute(params: {
     needsL2: result.needsL2 ?? false,
   };
 
-  setCachedResult(params.prompt, toolNameList, routeResult);
+  setCachedResult(params.prompt, toolNameList, routeResult, cacheExtra);
 
   incrementRouteStats({});
 
@@ -1116,6 +1164,11 @@ export interface RoutingModelChoice {
 
 export function classifyPromptComplexity(prompt: string, timeline?: string): RoutingModelChoice {
   const trimmed = prompt.trim();
+  const cfg = readVikingConfig();
+  const defaultProvider = cfg.routingProvider || "siliconflow";
+  const simpleModel = cfg.simpleModel || "Qwen/Qwen2.5-7B-Instruct";
+  const moderateModel = cfg.moderateModel || "Qwen/Qwen2.5-32B-Instruct";
+  const complexModel = cfg.complexModel || "Qwen/Qwen2.5-72B-Instruct";
 
   const simplePatterns =
     /^(你好|hi|hello|谢谢|好的|是|否|ok|yes|no|嗯|对|行|拜|再见|bye)[!！。.？?~～]*$/i;
@@ -1123,8 +1176,8 @@ export function classifyPromptComplexity(prompt: string, timeline?: string): Rou
     return {
       maxTokens: 50,
       complexity: "simple",
-      preferredModel: "Qwen/Qwen2.5-7B-Instruct",
-      preferredProvider: "siliconflow",
+      preferredModel: simpleModel,
+      preferredProvider: defaultProvider,
     };
   }
 
@@ -1134,8 +1187,8 @@ export function classifyPromptComplexity(prompt: string, timeline?: string): Rou
     return {
       maxTokens: 300,
       complexity: "complex",
-      preferredModel: "Qwen/Qwen2.5-72B-Instruct",
-      preferredProvider: "siliconflow",
+      preferredModel: complexModel,
+      preferredProvider: defaultProvider,
     };
   }
 
@@ -1144,16 +1197,16 @@ export function classifyPromptComplexity(prompt: string, timeline?: string): Rou
     return {
       maxTokens: 200,
       complexity: "moderate",
-      preferredModel: "Qwen/Qwen2.5-32B-Instruct",
-      preferredProvider: "siliconflow",
+      preferredModel: moderateModel,
+      preferredProvider: defaultProvider,
     };
   }
 
   return {
     maxTokens: 150,
     complexity: "moderate",
-    preferredModel: "Qwen/Qwen2.5-32B-Instruct",
-    preferredProvider: "siliconflow",
+    preferredModel: moderateModel,
+    preferredProvider: defaultProvider,
   };
 }
 
@@ -1188,11 +1241,30 @@ export function isValidRule(obj: unknown): boolean {
   if (!r.when || typeof r.when !== "object") {
     return false;
   }
+  const when = r.when as Record<string, unknown>;
+  if (when.promptMaxLength !== undefined && typeof when.promptMaxLength !== "number") {
+    return false;
+  }
+  if (when.noFileContext !== undefined && typeof when.noFileContext !== "boolean") {
+    return false;
+  }
+  if (when.filePatterns !== undefined && !Array.isArray(when.filePatterns)) {
+    return false;
+  }
+  if (
+    Array.isArray(when.filePatterns) &&
+    !when.filePatterns.every((p: unknown) => typeof p === "string")
+  ) {
+    return false;
+  }
   if (!r.apply || typeof r.apply !== "object") {
     return false;
   }
   const apply = r.apply as Record<string, unknown>;
   if (!Array.isArray(apply.packs)) {
+    return false;
+  }
+  if (!apply.packs.every((p: unknown) => typeof p === "string")) {
     return false;
   }
   if (typeof apply.promptMode !== "string" || !VALID_PROMPT_MODES.has(apply.promptMode)) {
@@ -1222,14 +1294,18 @@ function loadRulesFromDir(rulesDir: string): VikingRule[] {
           rules.push(parsed as VikingRule);
         }
       } catch (err) {
-        log.warn(`[viking] failed to load rule file ${entry}: ${String(err)}`);
+        log.warn(
+          `[viking] failed to load rule file ${entry}: ${err instanceof Error ? err.message : "unknown"}`,
+        );
       }
     }
     if (rules.length > 0) {
       log.info(`[viking] loaded ${rules.length} rule(s) from ${rulesDir}`);
     }
   } catch (err) {
-    log.warn(`[viking] failed to read rules dir ${rulesDir}: ${String(err)}`);
+    log.warn(
+      `[viking] failed to read rules dir: ${err instanceof Error ? err.message : "unknown"}`,
+    );
   }
   return rules;
 }

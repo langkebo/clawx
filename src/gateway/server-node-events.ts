@@ -14,6 +14,7 @@ import { normalizeMainKey } from "../routing/session-key.js";
 import { defaultRuntime } from "../runtime.js";
 import { parseMessageWithAttachments } from "./chat-attachments.js";
 import { normalizeRpcAttachmentsToChatAttachments } from "./server-methods/attachment-normalize.js";
+import { safeErrorMessage } from "./server-methods/safe-error.js";
 import type { NodeEvent, NodeEventContext } from "./server-node-events-types.js";
 import {
   loadSessionEntry,
@@ -297,7 +298,11 @@ export const handleNodeEvent = async (ctx: NodeEventContext, nodeId: string, evt
         ctx.deps,
       ).catch((err) => {
         ctx.logGateway.warn(`agent failed node=${nodeId}: ${formatForLog(err)}`);
-        ctx.broadcast("agent.error", { error: String(err), source: "voice.transcript", nodeId });
+        ctx.broadcast("agent.error", {
+          error: safeErrorMessage(err),
+          source: "voice.transcript",
+          nodeId,
+        });
       });
       return;
     }
@@ -428,7 +433,11 @@ export const handleNodeEvent = async (ctx: NodeEventContext, nodeId: string, evt
         ctx.deps,
       ).catch((err) => {
         ctx.logGateway.warn(`agent failed node=${nodeId}: ${formatForLog(err)}`);
-        ctx.broadcast("agent.error", { error: String(err), source: "agent.request", nodeId });
+        ctx.broadcast("agent.error", {
+          error: safeErrorMessage(err),
+          source: "agent.request",
+          nodeId,
+        });
       });
       return;
     }
