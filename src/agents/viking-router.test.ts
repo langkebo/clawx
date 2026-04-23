@@ -6,12 +6,20 @@ import {
   clearRoutingCache,
   extractJsonBlock,
   getRoutingCacheStats,
+  getVikingFullStats,
+  getVikingOptimizations,
+  getVikingRouteTag,
+  incrementRouteStats,
+  invalidateCacheForTool,
   isRateLimited,
   isRetryable,
   isValidRule,
   tryRuleBasedRoute,
+  vikingRouteWithFeedback,
   type SkillIndexEntry,
   type VikingRule,
+  type VikingRouteFeedback,
+  type VikingRouteResult,
 } from "./viking-router.js";
 
 describe("viking-router", () => {
@@ -224,6 +232,38 @@ describe("viking-router", () => {
       );
       expect(simple.maxTokens).toBeLessThanOrEqual(complex.maxTokens);
     });
+
+    it("returns preferredModel and preferredProvider for simple prompts", () => {
+      const result = classifyPromptComplexity("hi");
+      expect(result.preferredModel).toBeDefined();
+      expect(result.preferredProvider).toBeDefined();
+    });
+
+    it("returns preferredModel and preferredProvider for moderate prompts with keywords", () => {
+      const result = classifyPromptComplexity("请编辑这个文件");
+      expect(result.complexity).toBe("moderate");
+      expect(result.preferredModel).toBeDefined();
+      expect(result.preferredProvider).toBeDefined();
+    });
+
+    it("returns preferredModel and preferredProvider for moderate prompts without keywords", () => {
+      const result = classifyPromptComplexity(
+        "This is a moderately long prompt that needs some analysis",
+      );
+      expect(result.complexity).toBe("moderate");
+      expect(result.preferredModel).toBeDefined();
+      expect(result.preferredProvider).toBeDefined();
+    });
+
+    it("returns preferredModel and preferredProvider for complex prompts", () => {
+      const result = classifyPromptComplexity(
+        "Design and implement a distributed system with multiple microservices ".repeat(20),
+      );
+      if (result.complexity === "complex") {
+        expect(result.preferredModel).toBeDefined();
+        expect(result.preferredProvider).toBeDefined();
+      }
+    });
   });
 
   describe("buildSkillNamesOnlyPrompt", () => {
@@ -297,6 +337,353 @@ describe("viking-router", () => {
       };
       expect(rule.apply.packs).toEqual([]);
       expect(rule.apply.promptMode).toBe("L0");
+    });
+  });
+
+  describe("isValidRule", () => {
+    it("rejects rule with invalid promptMode", () => {
+      expect(
+        isValidRule({
+          when: { promptMaxLength: 50 },
+          apply: { packs: ["web"], promptMode: "L99" },
+        }),
+      ).toBe(false);
+    });
+
+    it("accepts rule with valid promptMode L0", () => {
+      expect(
+        isValidRule({
+          when: { promptMaxLength: 50 },
+          apply: { packs: [], promptMode: "L0" },
+        }),
+      ).toBe(true);
+    });
+
+    it("accepts rule with valid promptMode full", () => {
+      expect(
+        isValidRule({
+          when: { promptMaxLength: 50 },
+          apply: { packs: [], promptMode: "full" },
+        }),
+      ).toBe(true);
+    });
+
+    it("accepts rule with valid promptMode none", () => {
+      expect(
+        isValidRule({
+          when: { promptMaxLength: 50 },
+          apply: { packs: [], promptMode: "none" },
+        }),
+      ).toBe(true);
+    });
+
+    it("accepts rule with valid promptMode minimal", () => {
+      expect(
+        isValidRule({
+          when: { promptMaxLength: 50 },
+          apply: { packs: [], promptMode: "minimal" },
+        }),
+      ).toBe(true);
+    });
+
+    it("rejects rule without apply", () => {
+      expect(isValidRule({ when: { promptMaxLength: 50 } })).toBe(false);
+    });
+
+    it("rejects rule without when", () => {
+      expect(isValidRule({ apply: { packs: [], promptMode: "L0" } })).toBe(false);
+    });
+  });
+
+  describe("classifyProviderError extended", () => {
+    it("classifies 502 as transient", () => {
+      const result = classifyProviderError(new Error("502 bad gateway"));
+      expect(result.type).toBe("transient");
+      expect(result.retryable).toBe(true);
+    });
+
+    it("classifies billing errors", () => {
+      const result = classifyProviderError(new Error("billing quota exceeded"));
+      expect(result.type).toBe("billing");
+      expect(result.retryable).toBe(false);
+    });
+
+    it("classifies format errors from 422", () => {
+      const result = classifyProviderError(new Error("422 invalid request"));
+      expect(result.type).toBe("format");
+      expect(result.retryable).toBe(false);
+    });
+
+    it("classifies auth errors from invalid api key", () => {
+      const result = classifyProviderError(new Error("invalid api key provided"));
+      expect(result.type).toBe("auth");
+      expect(result.retryable).toBe(false);
+    });
+  });
+
+  describe("incrementRouteStats and getVikingFullStats", () => {
+    it("tracks total routes", () => {
+      incrementRouteStats({});
+      incrementRouteStats({});
+      incrementRouteStats({});
+      const stats = getVikingFullStats();
+      expect(stats.routes.total).toBeGreaterThanOrEqual(3);
+    });
+
+    it("tracks rule hits", () => {
+      incrementRouteStats({ ruleHit: true });
+      incrementRouteStats({ ruleHit: true });
+      const stats = getVikingFullStats();
+      expect(stats.routes.ruleHits).toBeGreaterThanOrEqual(2);
+      expect(stats.routes.ruleHitRate).toBeGreaterThan(0);
+    });
+
+    it("tracks reroutes", () => {
+      incrementRouteStats({ reroute: true });
+      const stats = getVikingFullStats();
+      expect(stats.routes.reroutes).toBeGreaterThanOrEqual(1);
+    });
+
+    it("includes optimizations", () => {
+      const stats = getVikingFullStats();
+      expect(stats.optimizations).toBeDefined();
+      expect(typeof stats.optimizations.P0_dynamic_reroute).toBe("boolean");
+      expect(typeof stats.optimizations.P1_post_compact_reroute).toBe("boolean");
+      expect(typeof stats.optimizations.P2_model_switching).toBe("boolean");
+      expect(typeof stats.optimizations.P3_parallel_routing).toBe("boolean");
+      expect(typeof stats.optimizations.P4_rule_engine).toBe("boolean");
+      expect(typeof stats.optimizations.P5_feedback_loop).toBe("boolean");
+    });
+
+    it("includes cache stats", () => {
+      const stats = getVikingFullStats();
+      expect(stats.cache).toBeDefined();
+      expect(typeof stats.cache.size).toBe("number");
+      expect(typeof stats.cache.maxSize).toBe("number");
+      expect(typeof stats.cache.ttlMs).toBe("number");
+    });
+  });
+
+  describe("getVikingOptimizations", () => {
+    it("returns all P0-P5 optimization flags", () => {
+      const opts = getVikingOptimizations();
+      expect(opts).toHaveProperty("P0_dynamic_reroute");
+      expect(opts).toHaveProperty("P1_post_compact_reroute");
+      expect(opts).toHaveProperty("P2_model_switching");
+      expect(opts).toHaveProperty("P3_parallel_routing");
+      expect(opts).toHaveProperty("P4_rule_engine");
+      expect(opts).toHaveProperty("P5_feedback_loop");
+    });
+  });
+
+  describe("getVikingRouteTag", () => {
+    it("returns Viking string when enabled", () => {
+      const tag = getVikingRouteTag();
+      expect(tag).toBe("Viking");
+    });
+  });
+
+  describe("invalidateCacheForTool", () => {
+    it("does not throw when cache is empty", () => {
+      expect(() => invalidateCacheForTool("read")).not.toThrow();
+    });
+  });
+
+  describe("classifyPromptComplexity extended", () => {
+    it("classifies simple Chinese greetings", () => {
+      const result = classifyPromptComplexity("你好");
+      expect(result.complexity).toBe("simple");
+      expect(result.preferredModel).toBeDefined();
+      expect(result.preferredProvider).toBeDefined();
+    });
+
+    it("classifies simple English greetings", () => {
+      const result = classifyPromptComplexity("hello");
+      expect(result.complexity).toBe("simple");
+      expect(result.maxTokens).toBe(50);
+    });
+
+    it("classifies complex keywords", () => {
+      const result = classifyPromptComplexity("请重构这个模块的架构");
+      expect(result.complexity).toBe("complex");
+      expect(result.maxTokens).toBe(300);
+      expect(result.preferredModel).toBeDefined();
+    });
+
+    it("classifies moderate keywords", () => {
+      const result = classifyPromptComplexity("请编辑这个文件");
+      expect(result.complexity).toBe("moderate");
+      expect(result.preferredModel).toBeDefined();
+      expect(result.preferredProvider).toBeDefined();
+    });
+
+    it("classifies default moderate without keywords", () => {
+      const result = classifyPromptComplexity(
+        "This is a moderately long prompt that needs some analysis",
+      );
+      expect(result.complexity).toBe("moderate");
+      expect(result.preferredModel).toBeDefined();
+      expect(result.preferredProvider).toBeDefined();
+    });
+
+    it("classifies as complex when timeline is long", () => {
+      const longTimeline = "x".repeat(2500);
+      const result = classifyPromptComplexity("do something", longTimeline);
+      expect(result.complexity).toBe("complex");
+    });
+
+    it("handles empty prompt", () => {
+      const result = classifyPromptComplexity("");
+      expect(result.complexity).toBe("moderate");
+      expect(result.preferredModel).toBeDefined();
+    });
+
+    it("handles whitespace-only prompt", () => {
+      const result = classifyPromptComplexity("   ");
+      expect(result.complexity).toBe("moderate");
+    });
+  });
+
+  describe("vikingRouteWithFeedback", () => {
+    const baseRouteResult: VikingRouteResult = {
+      tools: new Set(["read", "exec", "write", "edit"]),
+      files: new Set(["test.ts"]),
+      promptLayer: "L1",
+      skillsMode: "names",
+      skipped: false,
+      needsL1: false,
+      l1Dates: [],
+      needsL2: false,
+    };
+
+    it("handles context_overflow by reducing to core tools + L0", async () => {
+      const feedback: VikingRouteFeedback = {
+        routeResult: baseRouteResult,
+        executionResult: "context_overflow",
+      };
+
+      const result = await vikingRouteWithFeedback({
+        feedback,
+        allTools: [{ name: "read" }, { name: "exec" }, { name: "write" }],
+        model: {} as never,
+        modelRegistry: {} as never,
+        provider: "test",
+      });
+
+      expect(result).not.toBeNull();
+      expect(result!.promptLayer).toBe("L0");
+      expect(result!.skillsMode).toBe("names");
+      expect(result!.needsL1).toBe(false);
+      expect(result!.needsL2).toBe(false);
+      expect(result!.files.size).toBe(0);
+      expect(result!.tools.has("read") || result!.tools.has("exec")).toBe(true);
+    });
+
+    it("handles tool_missing by adding the missing tool and its pack", async () => {
+      const feedback: VikingRouteFeedback = {
+        routeResult: baseRouteResult,
+        executionResult: "tool_missing",
+        missingToolName: "web_search",
+      };
+
+      const result = await vikingRouteWithFeedback({
+        feedback,
+        allTools: [
+          { name: "read" },
+          { name: "exec" },
+          { name: "write" },
+          { name: "edit" },
+          { name: "web_search" },
+          { name: "web_fetch" },
+        ],
+        model: {} as never,
+        modelRegistry: {} as never,
+        provider: "test",
+      });
+
+      expect(result).not.toBeNull();
+      expect(result!.tools.has("web_search")).toBe(true);
+      expect(result!.tools.has("web_fetch")).toBe(true);
+    });
+
+    it("returns null for tool_missing when tool not in allTools", async () => {
+      const feedback: VikingRouteFeedback = {
+        routeResult: baseRouteResult,
+        executionResult: "tool_missing",
+        missingToolName: "nonexistent_tool",
+      };
+
+      const result = await vikingRouteWithFeedback({
+        feedback,
+        allTools: [{ name: "read" }, { name: "exec" }],
+        model: {} as never,
+        modelRegistry: {} as never,
+        provider: "test",
+      });
+
+      expect(result).toBeNull();
+    });
+
+    it("returns null for success feedback", async () => {
+      const feedback: VikingRouteFeedback = {
+        routeResult: baseRouteResult,
+        executionResult: "success",
+      };
+
+      const result = await vikingRouteWithFeedback({
+        feedback,
+        allTools: [{ name: "read" }],
+        model: {} as never,
+        modelRegistry: {} as never,
+        provider: "test",
+      });
+
+      expect(result).toBeNull();
+    });
+
+    it("returns null for tool_error feedback", async () => {
+      const feedback: VikingRouteFeedback = {
+        routeResult: baseRouteResult,
+        executionResult: "tool_error",
+        errorMessage: "something went wrong",
+      };
+
+      const result = await vikingRouteWithFeedback({
+        feedback,
+        allTools: [{ name: "read" }],
+        model: {} as never,
+        modelRegistry: {} as never,
+        provider: "test",
+      });
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("extractJsonBlock edge cases", () => {
+    it("handles JSON with array inside", () => {
+      const result = extractJsonBlock('{"items":[1,2,3]}');
+      expect(result).toBe('{"items":[1,2,3]}');
+    });
+
+    it("handles JSON with nested arrays", () => {
+      const result = extractJsonBlock('{"a":[[1,2],[3,4]]}');
+      expect(result).toBe('{"a":[[1,2],[3,4]]}');
+    });
+
+    it("handles empty object", () => {
+      const result = extractJsonBlock("{}");
+      expect(result).toBe("{}");
+    });
+
+    it("handles JSON at end of text without closing context", () => {
+      const result = extractJsonBlock('result: {"key":"val"}');
+      expect(result).toBe('{"key":"val"}');
+    });
+
+    it("handles JSON with unicode escapes", () => {
+      const result = extractJsonBlock('{"key":"\\u0041"}');
+      expect(result).toBe('{"key":"\\u0041"}');
     });
   });
 });

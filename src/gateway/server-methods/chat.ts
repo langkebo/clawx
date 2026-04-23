@@ -596,7 +596,7 @@ export const chatHandlers: GatewayRequestHandlers = {
       sessionId && storePath ? readSessionMessages(sessionId, storePath, entry?.sessionFile) : [];
     const hardMax = 1000;
     const defaultLimit = 200;
-    const requested = typeof limit === "number" ? limit : defaultLimit;
+    const requested = typeof limit === "number" && limit > 0 ? limit : defaultLimit;
     const max = Math.min(hardMax, requested);
     const sliced = rawMessages.length > max ? rawMessages.slice(-max) : rawMessages;
     const sanitized = stripEnvelopeFromMessages(sliced);
@@ -1019,6 +1019,7 @@ export const chatHandlers: GatewayRequestHandlers = {
           context.chatAbortControllers.delete(clientRunId);
         });
     } catch (err) {
+      context.chatAbortControllers.delete(clientRunId);
       const error = errorShape(ErrorCodes.UNAVAILABLE, String(err));
       const payload = {
         runId: clientRunId,
@@ -1055,6 +1056,12 @@ export const chatHandlers: GatewayRequestHandlers = {
       label?: string;
     };
 
+    const sanitized = sanitizeChatSendMessageInput(p.message);
+    if (!sanitized.ok) {
+      respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, sanitized.error));
+      return;
+    }
+
     // Load session to find transcript file
     const rawSessionKey = p.sessionKey;
     const { cfg, storePath, entry } = loadSessionEntry(rawSessionKey);
@@ -1065,7 +1072,7 @@ export const chatHandlers: GatewayRequestHandlers = {
     }
 
     const appended = appendAssistantTranscriptMessage({
-      message: p.message,
+      message: sanitized.message,
       label: p.label,
       sessionId,
       storePath,

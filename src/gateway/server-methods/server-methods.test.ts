@@ -221,6 +221,21 @@ describe("sanitizeChatSendMessageInput", () => {
   it("normalizes unicode to NFC", () => {
     expect(sanitizeChatSendMessageInput("Cafe\u0301")).toEqual({ ok: true, message: "Café" });
   });
+
+  it("rejects messages exceeding max length", () => {
+    const longMessage = "a".repeat(100_001);
+    const result = sanitizeChatSendMessageInput(longMessage);
+    expect(result).toEqual({
+      ok: false,
+      error: `message too long (100001 chars, max 100000)`,
+    });
+  });
+
+  it("accepts messages at max length boundary", () => {
+    const maxMessage = "a".repeat(100_000);
+    const result = sanitizeChatSendMessageInput(maxMessage);
+    expect(result).toEqual({ ok: true, message: maxMessage });
+  });
 });
 
 describe("gateway chat transcript writes (guardrail)", () => {

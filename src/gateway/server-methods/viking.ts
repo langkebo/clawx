@@ -2,7 +2,6 @@ import {
   classifyProviderError,
   clearRoutingCache,
   getVikingFullStats,
-  getVikingOptimizations,
 } from "../../agents/viking-router.js";
 import { createSubsystemLogger } from "../../logging/subsystem.js";
 import { ErrorCodes, errorShape } from "../protocol/index.js";
@@ -31,14 +30,7 @@ export const vikingHandlers: GatewayRequestHandlers = {
   "viking.stats": async ({ respond }) => {
     try {
       const stats = getVikingFullStats();
-      respond(
-        true,
-        {
-          ...stats,
-          optimizations: getVikingOptimizations(),
-        },
-        undefined,
-      );
+      respond(true, stats, undefined);
     } catch (err) {
       const classified = classifyVikingError(err);
       respond(

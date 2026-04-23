@@ -67,6 +67,18 @@ describe("tasks-tool", () => {
         expect.objectContaining({ priority: "high" }),
       );
     });
+
+    it("filters by tag", async () => {
+      vi.mocked(taskStore.listTasks).mockResolvedValue([]);
+      await execute({ action: "list", tag: "deploy" });
+      expect(taskStore.listTasks).toHaveBeenCalledWith(expect.objectContaining({ tag: "deploy" }));
+    });
+
+    it("triggers background cleanup on list", async () => {
+      vi.mocked(taskStore.listTasks).mockResolvedValue([]);
+      await execute({ action: "list" });
+      expect(taskStore.cleanupOldTasks).toHaveBeenCalledWith(30 * 24 * 60 * 60 * 1000);
+    });
   });
 
   describe("action=create", () => {
@@ -201,6 +213,20 @@ describe("tasks-tool", () => {
       const result = await execute({ action: "unknown" });
       const parsed = JSON.parse((result as { content: Array<{ text: string }> }).content[0].text);
       expect(parsed.error).toContain("Unknown action");
+    });
+  });
+
+  describe("taskId validation", () => {
+    it("rejects path traversal in show", async () => {
+      const result = await execute({ action: "show", taskId: "../../etc/passwd" });
+      const parsed = JSON.parse((result as { content: Array<{ text: string }> }).content[0].text);
+      expect(parsed.error).toContain("not found");
+    });
+
+    it("rejects path traversal in update", async () => {
+      const result = await execute({ action: "update", taskId: "../secret", status: "running" });
+      const parsed = JSON.parse((result as { content: Array<{ text: string }> }).content[0].text);
+      expect(parsed.error).toContain("not found");
     });
   });
 });

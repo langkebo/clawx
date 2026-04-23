@@ -149,6 +149,7 @@ export function getVikingFullStats(): {
   enabled: boolean;
   cache: { size: number; maxSize: number; ttlMs: number; hitRate: number };
   routes: { total: number; ruleHits: number; ruleHitRate: number; reroutes: number };
+  optimizations: ReturnType<typeof getVikingOptimizations>;
 } {
   return {
     enabled: readVikingConfig().enabled,
@@ -159,6 +160,7 @@ export function getVikingFullStats(): {
       ruleHitRate: ruleHits / Math.max(totalRoutes, 1),
       reroutes: rerouteCount,
     },
+    optimizations: getVikingOptimizations(),
   };
 }
 
@@ -477,6 +479,8 @@ export function classifyProviderError(err: unknown): {
   return { type: "unknown", retryable: false, message: err.message };
 }
 
+const ROUTING_FETCH_TIMEOUT_MS = 30_000;
+
 async function callRoutingModel(params: {
   model: Model<Api>;
   modelRegistry: ModelRegistry;
@@ -541,14 +545,22 @@ async function callRoutingModel(params: {
       let rateLimitRetry = false;
       for (const temp of [0, 1]) {
         try {
-          const response = await fetch(url, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-            },
-            body: JSON.stringify({ ...baseBody, temperature: temp }),
-          });
+          const abortController = new AbortController();
+          const timeoutId = setTimeout(() => abortController.abort(), ROUTING_FETCH_TIMEOUT_MS);
+          let response: Response;
+          try {
+            response = await fetch(url, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+              },
+              body: JSON.stringify({ ...baseBody, temperature: temp }),
+              signal: abortController.signal,
+            });
+          } finally {
+            clearTimeout(timeoutId);
+          }
 
           if (!response.ok) {
             const errText = await response.text().catch(() => "");
@@ -648,8 +660,16 @@ async function callRoutingModel(params: {
         ? parsed.files.filter((f: unknown) => typeof f === "string")
         : [];
       if (packs.length === 0 && files.length === 0) {
-        log.info(`[viking] routing response missing packs/files, fallback to full`);
-        return null;
+        log.info(`[viking] routing response has no packs/files, treating as core-only`);
+        return {
+          packs: [],
+          files: [],
+          needsL1: parsed.needsL1 === true,
+          l1Dates: Array.isArray(parsed.l1Dates)
+            ? parsed.l1Dates.filter((d: unknown) => typeof d === "string")
+            : [],
+          needsL2: parsed.needsL2 === true,
+        };
       }
       return {
         packs,
@@ -1132,6 +1152,8 @@ export function classifyPromptComplexity(prompt: string, timeline?: string): Rou
   return {
     maxTokens: 150,
     complexity: "moderate",
+    preferredModel: "Qwen/Qwen2.5-32B-Instruct",
+    preferredProvider: "siliconflow",
   };
 }
 
@@ -1156,7 +1178,7 @@ const DEFAULT_RULES: VikingRule[] = [
   },
 ];
 
-const VALID_PROMPT_MODES = new Set<string>(["L0", "L1", "full", "minimal"]);
+const VALID_PROMPT_MODES = new Set<string>(["L0", "L1", "full", "minimal", "none"]);
 
 export function isValidRule(obj: unknown): boolean {
   if (!obj || typeof obj !== "object") {
@@ -1248,7 +1270,7 @@ function matchRule(
       const matches = context.fileNames.some((fn) =>
         w.filePatterns!.some((pat) => {
           const escaped = pat.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-          const regex = new RegExp(escaped.replace(/\*/g, ".*").replace(/\?/g, "."));
+          const regex = new RegExp(`^${escaped.replace(/\*/g, ".*").replace(/\?/g, ".")}$`);
           return regex.test(fn);
         }),
       );

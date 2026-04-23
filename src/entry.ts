@@ -12,6 +12,12 @@ process.title = "openclaw";
 installProcessWarningFilter();
 normalizeEnv();
 
+if (process.platform === "win32") {
+  try {
+    spawn("chcp", ["65001"], { stdio: "ignore", shell: true });
+  } catch {}
+}
+
 if (process.argv.includes("--no-color")) {
   process.env.NO_COLOR = "1";
   process.env.FORCE_COLOR = "0";

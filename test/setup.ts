@@ -1,7 +1,13 @@
 import { afterAll, afterEach, beforeEach, vi } from "vitest";
 
-// Ensure Vitest environment is properly set
 process.env.VITEST = "true";
+
+if (process.platform === "win32") {
+  try {
+    const { execSync } = await import("node:child_process");
+    execSync("chcp 65001", { stdio: "ignore" });
+  } catch {}
+}
 // Config validation walks plugin manifests; keep an aggressive cache in tests to avoid
 // repeated filesystem discovery across suites/workers.
 process.env.OPENCLAW_PLUGIN_MANIFEST_CACHE_MS ??= "60000";

@@ -37,6 +37,20 @@ function getTaskFilePath(taskId: string): string {
   return path.join(getTasksDir(), `${taskId}.json`);
 }
 
+const TASK_ID_PATTERN = /^task_[a-z0-9]+_[a-f0-9]+$/;
+
+function isValidTaskId(taskId: string): boolean {
+  return TASK_ID_PATTERN.test(taskId);
+}
+
+function sanitizeTaskId(taskId: string): string {
+  const sanitized = taskId.replace(/[^a-zA-Z0-9_-]/g, "");
+  if (sanitized !== taskId || !isValidTaskId(taskId)) {
+    return "";
+  }
+  return taskId;
+}
+
 function generateTaskId(): string {
   const timestamp = Date.now().toString(36);
   const random = randomBytes(4).toString("hex");
@@ -83,6 +97,10 @@ export async function createTask(params: {
 }
 
 export async function getTask(taskId: string): Promise<Task | null> {
+  if (!sanitizeTaskId(taskId)) {
+    log.warn(`invalid taskId format rejected: ${taskId.slice(0, 20)}`);
+    return null;
+  }
   try {
     const content = await fs.readFile(getTaskFilePath(taskId), "utf-8");
     const parsed = JSON.parse(content);
@@ -105,6 +123,10 @@ export async function updateTask(
     >
   >,
 ): Promise<Task | null> {
+  if (!sanitizeTaskId(taskId)) {
+    log.warn(`invalid taskId format rejected: ${taskId.slice(0, 20)}`);
+    return null;
+  }
   const task = await getTask(taskId);
   if (!task) {
     return null;
@@ -128,6 +150,10 @@ export async function updateTask(
 }
 
 export async function deleteTask(taskId: string): Promise<boolean> {
+  if (!sanitizeTaskId(taskId)) {
+    log.warn(`invalid taskId format rejected: ${taskId.slice(0, 20)}`);
+    return false;
+  }
   try {
     await fs.unlink(getTaskFilePath(taskId));
     log.info(`task deleted: ${taskId}`);
@@ -146,34 +172,36 @@ export async function listTasks(options?: {
 }): Promise<Task[]> {
   ensureTasksDir();
   const files = await fs.readdir(getTasksDir());
-  const tasks: Task[] = [];
+  const jsonFiles = files.filter((f) => f.endsWith(".json"));
 
-  for (const file of files) {
-    if (!file.endsWith(".json")) {
-      continue;
-    }
-    try {
-      const content = await fs.readFile(path.join(getTasksDir(), file), "utf-8");
-      const task = JSON.parse(content) as Task;
-      if (!task || typeof task !== "object" || typeof task.id !== "string") {
-        continue;
+  const readResults = await Promise.all(
+    jsonFiles.map(async (file) => {
+      try {
+        const content = await fs.readFile(path.join(getTasksDir(), file), "utf-8");
+        const task = JSON.parse(content) as Task;
+        if (!task || typeof task !== "object" || typeof task.id !== "string") {
+          return null;
+        }
+        if (options?.status && task.status !== options.status) {
+          return null;
+        }
+        if (options?.priority && task.priority !== options.priority) {
+          return null;
+        }
+        if (options?.tag && !(task.tags ?? []).includes(options.tag)) {
+          return null;
+        }
+        if (options?.parentTaskId && task.parentTaskId !== options.parentTaskId) {
+          return null;
+        }
+        return task;
+      } catch {
+        return null;
       }
-      if (options?.status && task.status !== options.status) {
-        continue;
-      }
-      if (options?.priority && task.priority !== options.priority) {
-        continue;
-      }
-      if (options?.tag && !(task.tags ?? []).includes(options.tag)) {
-        continue;
-      }
-      if (options?.parentTaskId && task.parentTaskId !== options.parentTaskId) {
-        continue;
-      }
-      tasks.push(task);
-    } catch {}
-  }
+    }),
+  );
 
+  const tasks = readResults.filter((t): t is Task => t !== null);
   tasks.sort((a, b) => b.updatedAt - a.updatedAt);
 
   return options?.limit ? tasks.slice(0, options.limit) : tasks;

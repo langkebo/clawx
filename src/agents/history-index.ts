@@ -183,6 +183,19 @@ function getSessionsDir(agentDir: string): string {
   return path.join(path.dirname(agentDir), "sessions");
 }
 
+function isValidSessionId(sid: string): boolean {
+  if (!sid || sid.length === 0 || sid.length > 128) {
+    return false;
+  }
+  if (sid.includes("..") || sid.includes("/") || sid.includes("\\") || sid.includes("\0")) {
+    return false;
+  }
+  if (sid.startsWith(".") || sid.startsWith("-")) {
+    return false;
+  }
+  return true;
+}
+
 // ========================
 // 时间戳ID → sessionId 映射
 // ========================
@@ -221,7 +234,7 @@ function saveTsidMapping(agentDir: string, tsid: string, sessionId: string): voi
 
 /** 从 L0 单行中提取时间戳 ID，格式: - 202602260705 | 摘要 */
 function parseTsidFromTimelineLine(line: string): string | null {
-  const match = line.match(/^-\s*(\d{12})\s*\|/);
+  const match = line.match(/^-\s*(\d{12,16})\s*\|/);
   return match ? match[1] : null;
 }
 
@@ -269,7 +282,7 @@ function buildDateTsidMap(timeline: string): Record<string, string[]> {
  */
 export function extractTsids(l1Text: string): string[] {
   const ids: string[] = [];
-  const regex = /\[(\d{12})\]/g;
+  const regex = /\[(\d{12,16})\]/g;
   let match: RegExpExecArray | null;
 
   // biome-ignore lint: regex exec loop
@@ -328,6 +341,10 @@ export function resolveSessionIdsFromTsids(
 // ========================
 
 function readSessionMessages(sessionDir: string, sessionId: string): string {
+  if (!isValidSessionId(sessionId)) {
+    log.warn(`[history] invalid sessionId rejected: ${sessionId.slice(0, 20)}`);
+    return "";
+  }
   const jsonlPath = path.join(sessionDir, `${sessionId}.jsonl`);
 
   if (!fs.existsSync(jsonlPath)) {
@@ -409,6 +426,10 @@ export async function loadL2Session(params: {
   for (const sid of targetIds) {
     if (totalChars >= maxTotal) {
       break;
+    }
+    if (!isValidSessionId(sid)) {
+      log.warn(`[history] L2: invalid sessionId skipped: ${sid.slice(0, 20)}`);
+      continue;
     }
 
     const jsonlPath = path.join(sessionsDir, `${sid}.jsonl`);
@@ -762,7 +783,7 @@ ${toolList}
     if (parsed.l0) {
       let l0Summary = parsed.l0;
       // 去掉 LLM 可能残留的前缀
-      l0Summary = l0Summary.replace(/^-\s*/, "").replace(/^\d{12}\s*\|\s*/, "");
+      l0Summary = l0Summary.replace(/^-\s*/, "").replace(/^\d{12,16}\s*\|\s*/, "");
 
       const l0Line = `- ${tsid} | ${l0Summary}`;
       fs.appendFileSync(getTimelinePath(params.agentDir), l0Line + "\n", "utf-8");
@@ -805,8 +826,8 @@ function addTsidToL1(l1Text: string, tsid: string): string {
   const tagged = lines.map((line) => {
     const trimmed = line.trim();
     if (trimmed.startsWith("- ")) {
-      // 检查是否已经有 [12位数字]
-      if (trimmed.match(/^- \[\d{12}\]/)) {
+      // 检查是否已经有 [12-16位数字]
+      if (trimmed.match(/^- \[\d{12,16}\]/)) {
         return line;
       }
       return line.replace(/^(\s*- )/, `$1[${tsid}] `);
@@ -951,7 +972,7 @@ export async function loadL1Decisions(params: {
         continue;
       }
 
-      const tsidMatch = trimmed.match(/\[(\d{12})\]/);
+      const tsidMatch = trimmed.match(/\[(\d{12,16})\]/);
       if (tsidMatch && tsidSet.has(tsidMatch[1])) {
         if (currentDateHeader && !filteredLines.includes(currentDateHeader)) {
           if (filteredLines.length > 0) {
