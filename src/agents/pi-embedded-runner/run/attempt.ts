@@ -88,6 +88,7 @@ import {
   vikingReRoute,
   vikingRouteWithFeedback,
   invalidateCacheForTool,
+  getVikingOptimizations,
 } from "../../viking-router.js";
 import type { VikingRouteResult } from "../../viking-router.js";
 import { DEFAULT_BOOTSTRAP_FILENAME } from "../../workspace.js";
@@ -473,7 +474,7 @@ export async function runEmbeddedAttempt(
     // ===== L2 按需加载 end =====
 
     // P0: 动态再路由 — 如果上次会话有工具缺失，自动补充
-    if (!routingDecision.skipped && params.prompt) {
+    if (!routingDecision.skipped && params.prompt && getVikingOptimizations().P0_dynamic_reroute) {
       const lastError = params.previousToolError;
       if (lastError?.missingToolName) {
         const feedbackResult = await vikingRouteWithFeedback({
@@ -1361,7 +1362,12 @@ export async function runEmbeddedAttempt(
 
         // P1: Compact 后重路由 — compaction 完成后重新评估工具集
         // Thrashing 检测：如果反复 compact 则降级到 L0 而非继续重路由
-        if (!routingDecision.skipped && getCompactionCount() > 0 && !promptError) {
+        if (
+          !routingDecision.skipped &&
+          getCompactionCount() > 0 &&
+          !promptError &&
+          getVikingOptimizations().P1_post_compact_reroute
+        ) {
           if (isThrashingDetected()) {
             log.warn(`[viking] thrashing detected, downgrading to L0 prompt mode`);
             routingDecision = { ...routingDecision, promptLayer: "L0", skillsMode: "names" };

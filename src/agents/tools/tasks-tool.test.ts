@@ -9,6 +9,8 @@ vi.mock("../../infra/task-store.js", () => ({
   getTask: vi.fn(),
   listTasks: vi.fn(),
   updateTask: vi.fn(),
+  VALID_TASK_STATUSES: new Set(["pending", "running", "completed", "failed", "cancelled"]),
+  VALID_TASK_PRIORITIES: new Set(["low", "medium", "high"]),
 }));
 
 describe("tasks-tool", () => {
@@ -77,7 +79,7 @@ describe("tasks-tool", () => {
     it("triggers background cleanup on list", async () => {
       vi.mocked(taskStore.listTasks).mockResolvedValue([]);
       await execute({ action: "list" });
-      expect(taskStore.cleanupOldTasks).toHaveBeenCalledWith(30 * 24 * 60 * 60 * 1000);
+      expect(taskStore.cleanupOldTasks).toHaveBeenCalledWith();
     });
   });
 

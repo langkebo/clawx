@@ -5,6 +5,7 @@ import {
 } from "../../agents/viking-router.js";
 import { createSubsystemLogger } from "../../logging/subsystem.js";
 import { ErrorCodes, errorShape } from "../protocol/index.js";
+import { safeErrorMessage } from "./safe-error.js";
 import type { GatewayRequestHandlers } from "./types.js";
 
 const log = createSubsystemLogger("viking-rpc");
@@ -30,13 +31,6 @@ function classifyVikingError(err: unknown): {
     default:
       return { code: ErrorCodes.UNAVAILABLE, retryable: false };
   }
-}
-
-function safeErrorMessage(err: unknown): string {
-  if (err instanceof Error) {
-    return err.message.slice(0, 200);
-  }
-  return "internal error";
 }
 
 export const vikingHandlers: GatewayRequestHandlers = {

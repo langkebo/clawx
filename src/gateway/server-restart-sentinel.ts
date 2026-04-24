@@ -13,6 +13,7 @@ import {
 } from "../infra/restart-sentinel.js";
 import { enqueueSystemEvent } from "../infra/system-events.js";
 import { deliveryContextFromSession, mergeDeliveryContext } from "../utils/delivery-context.js";
+import { safeErrorMessage } from "./server-methods/safe-error.js";
 import { loadSessionEntry } from "./session-utils.js";
 
 export async function scheduleRestartSentinelWake(_params: { deps: CliDeps }) {
@@ -88,7 +89,7 @@ export async function scheduleRestartSentinelWake(_params: { deps: CliDeps }) {
       bestEffort: true,
     });
   } catch (err) {
-    enqueueSystemEvent(`${summary}\n${String(err)}`, { sessionKey });
+    enqueueSystemEvent(`${summary}\n${safeErrorMessage(err)}`, { sessionKey });
   }
 }
 

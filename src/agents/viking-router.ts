@@ -977,7 +977,7 @@ export function buildSkillNamesOnlyPrompt(skills: SkillIndexEntry[]): string {
 // P0: 动态再路由 — 工具调用失败时自动补充
 // ========================
 
-export interface VikingReRouteResult {
+interface VikingReRouteResult {
   addTools: Set<string>;
   removeTools: Set<string>;
   addPacks: string[];
@@ -1057,7 +1057,7 @@ Which packs should be added? Reply JSON:
 // P5: 验证反馈回路 — 路由自纠正
 // ========================
 
-export type RouteFeedbackType = "tool_missing" | "tool_error" | "context_overflow" | "success";
+type RouteFeedbackType = "tool_missing" | "tool_error" | "context_overflow" | "success";
 
 export interface VikingRouteFeedback {
   routeResult: VikingRouteResult;
@@ -1155,7 +1155,7 @@ export async function vikingRouteWithFeedback(params: {
 // P2: 路由模型动态切换
 // ========================
 
-export interface RoutingModelChoice {
+interface RoutingModelChoice {
   maxTokens: number;
   complexity: "simple" | "moderate" | "complex";
   preferredModel?: string;

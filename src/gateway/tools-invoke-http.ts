@@ -104,12 +104,12 @@ function mergeActionIntoArgsIfSupported(params: {
 
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error) {
-    return err.message || String(err);
+    return err.message.slice(0, 200);
   }
   if (typeof err === "string") {
-    return err;
+    return err.slice(0, 200);
   }
-  return String(err);
+  return "internal error";
 }
 
 function isToolInputError(err: unknown): boolean {
@@ -313,7 +313,9 @@ export async function handleToolsInvokeHttpRequest(
       });
       return true;
     }
-    logWarn(`tools-invoke: tool execution failed: ${String(err)}`);
+    logWarn(
+      `tools-invoke: tool execution failed: ${err instanceof Error ? err.message : "unknown"}`,
+    );
     sendJson(res, 500, {
       ok: false,
       error: { type: "tool_error", message: "tool execution failed" },

@@ -8,6 +8,8 @@ import {
   updateTask,
   type TaskPriority,
   type TaskStatus,
+  VALID_TASK_PRIORITIES,
+  VALID_TASK_STATUSES,
 } from "../../infra/task-store.js";
 import { createSubsystemLogger } from "../../logging/subsystem.js";
 import { optionalStringEnum, stringEnum } from "../schema/typebox.js";
@@ -16,22 +18,14 @@ import { jsonResult, readNumberParam, readStringParam, readStringArrayParam } fr
 
 const log = createSubsystemLogger("tasks-tool");
 
-const VALID_STATUSES: readonly TaskStatus[] = [
-  "pending",
-  "running",
-  "completed",
-  "failed",
-  "cancelled",
-];
-const VALID_PRIORITIES: readonly TaskPriority[] = ["low", "medium", "high"];
 const TASK_ACTIONS = ["list", "create", "update", "show", "remove"] as const;
 
 function isValidStatus(value: string): value is TaskStatus {
-  return (VALID_STATUSES as readonly string[]).includes(value);
+  return VALID_TASK_STATUSES.has(value);
 }
 
 function isValidPriority(value: string): value is TaskPriority {
-  return (VALID_PRIORITIES as readonly string[]).includes(value);
+  return VALID_TASK_PRIORITIES.has(value);
 }
 
 const MAX_LIMIT = 100;
@@ -49,10 +43,10 @@ export function createTasksTool(): AnyAgentTool {
       description: Type.Optional(
         Type.String({ description: "Task description (for create/update)" }),
       ),
-      status: optionalStringEnum(VALID_STATUSES, {
+      status: optionalStringEnum([...VALID_TASK_STATUSES], {
         description: "Task status (for create/update/list filter)",
       }),
-      priority: optionalStringEnum(VALID_PRIORITIES, {
+      priority: optionalStringEnum([...VALID_TASK_PRIORITIES], {
         description: "Task priority (for create/update/list filter)",
       }),
       tags: Type.Optional(Type.Array(Type.String({ description: "Tags (for create)" }))),
@@ -69,8 +63,10 @@ export function createTasksTool(): AnyAgentTool {
 
         switch (action) {
           case "list": {
-            cleanupOldTasks(30 * 24 * 60 * 60 * 1000).catch((err) => {
-              log.warn(`[tasks] background cleanup failed: ${String(err)}`);
+            cleanupOldTasks().catch((err) => {
+              log.warn(
+                `[tasks] background cleanup failed: ${err instanceof Error ? err.message : "unknown"}`,
+              );
             });
             const statusStr = readStringParam(params, "status");
             const priorityStr = readStringParam(params, "priority");
@@ -107,7 +103,7 @@ export function createTasksTool(): AnyAgentTool {
               } else {
                 return jsonResult({
                   action: "update",
-                  error: `Invalid status: ${status}. Valid: ${VALID_STATUSES.join(", ")}`,
+                  error: `Invalid status: ${status}. Valid: ${[...VALID_TASK_STATUSES].join(", ")}`,
                 });
               }
             }
@@ -118,7 +114,7 @@ export function createTasksTool(): AnyAgentTool {
               } else {
                 return jsonResult({
                   action: "update",
-                  error: `Invalid priority: ${priority}. Valid: ${VALID_PRIORITIES.join(", ")}`,
+                  error: `Invalid priority: ${priority}. Valid: ${[...VALID_TASK_PRIORITIES].join(", ")}`,
                 });
               }
             }
@@ -181,8 +177,9 @@ export function createTasksTool(): AnyAgentTool {
             });
         }
       } catch (err) {
-        log.warn(`[tasks] execute error: ${String(err)}`);
-        return jsonResult({ error: `Tasks tool error: ${String(err).slice(0, 200)}` });
+        const msg = err instanceof Error ? err.message : "unknown error";
+        log.warn(`[tasks] execute error: ${msg}`);
+        return jsonResult({ error: `Tasks tool error: ${msg.slice(0, 200)}` });
       }
     },
   };

@@ -29,14 +29,14 @@ export type Task = {
 
 const TASKS_DIR_NAME = "tasks";
 
-const VALID_TASK_STATUSES: ReadonlySet<string> = new Set([
+export const VALID_TASK_STATUSES: ReadonlySet<string> = new Set([
   "pending",
   "running",
   "completed",
   "failed",
   "cancelled",
 ]);
-const VALID_TASK_PRIORITIES: ReadonlySet<string> = new Set(["low", "medium", "high"]);
+export const VALID_TASK_PRIORITIES: ReadonlySet<string> = new Set(["low", "medium", "high"]);
 
 function isValidTaskData(data: unknown): data is Task {
   if (!data || typeof data !== "object") {

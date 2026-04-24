@@ -9,6 +9,7 @@ import { enqueueSystemEvent } from "../../infra/system-events.js";
 import type { createSubsystemLogger } from "../../logging/subsystem.js";
 import type { HookMessageChannel, HooksConfigResolved } from "../hooks.js";
 import { createHooksRequestHandler } from "../server-http.js";
+import { safeErrorMessage } from "../server-methods/safe-error.js";
 
 type SubsystemLogger = ReturnType<typeof createSubsystemLogger>;
 
@@ -93,8 +94,8 @@ export function createGatewayHooksRequestHandler(params: {
           requestHeartbeatNow({ reason: `hook:${jobId}` });
         }
       } catch (err) {
-        logHooks.warn(`hook agent failed: ${String(err)}`);
-        enqueueSystemEvent(`Hook ${value.name} (error): ${String(err)}`, {
+        logHooks.warn(`hook agent failed: ${safeErrorMessage(err)}`);
+        enqueueSystemEvent(`Hook ${value.name} (error): ${safeErrorMessage(err)}`, {
           sessionKey: mainSessionKey,
         });
         if (value.wakeMode === "now") {

@@ -11,11 +11,10 @@ import {
   type Task,
   type TaskStatus,
   type TaskPriority,
+  VALID_TASK_STATUSES,
+  VALID_TASK_PRIORITIES,
 } from "../infra/task-store.js";
 import { formatHelpExamples } from "./help-format.js";
-
-const VALID_STATUSES = new Set<string>(["pending", "running", "completed", "failed", "cancelled"]);
-const VALID_PRIORITIES = new Set<string>(["low", "medium", "high"]);
 
 const STATUS_COLORS: Record<TaskStatus, (s: string) => string> = {
   pending: chalk.yellow,
@@ -103,13 +102,15 @@ export function registerTasksCli(program: Command) {
     .option("-l, --limit <number>", "Max tasks to show", "20")
     .option("--json", "Output as JSON")
     .action(async (opts) => {
-      const status = VALID_STATUSES.has(opts.status) ? (opts.status as TaskStatus) : undefined;
-      const priority = VALID_PRIORITIES.has(opts.priority)
+      const status = VALID_TASK_STATUSES.has(opts.status) ? (opts.status as TaskStatus) : undefined;
+      const priority = VALID_TASK_PRIORITIES.has(opts.priority)
         ? (opts.priority as TaskPriority)
         : undefined;
       if (opts.status && !status) {
         console.error(
-          chalk.red(`Invalid status: ${opts.status}. Valid: ${[...VALID_STATUSES].join(", ")}`),
+          chalk.red(
+            `Invalid status: ${opts.status}. Valid: ${[...VALID_TASK_STATUSES].join(", ")}`,
+          ),
         );
         process.exitCode = 1;
         return;
@@ -117,7 +118,7 @@ export function registerTasksCli(program: Command) {
       if (opts.priority && !priority) {
         console.error(
           chalk.red(
-            `Invalid priority: ${opts.priority}. Valid: ${[...VALID_PRIORITIES].join(", ")}`,
+            `Invalid priority: ${opts.priority}. Valid: ${[...VALID_TASK_PRIORITIES].join(", ")}`,
           ),
         );
         process.exitCode = 1;
@@ -168,7 +169,9 @@ export function registerTasksCli(program: Command) {
     .option("-p, --priority <priority>", "Priority (low|medium|high)", "medium")
     .option("-t, --tags <tags>", "Comma-separated tags")
     .action(async (title: string, opts) => {
-      const priority: TaskPriority = VALID_PRIORITIES.has(opts.priority) ? opts.priority : "medium";
+      const priority: TaskPriority = VALID_TASK_PRIORITIES.has(opts.priority)
+        ? opts.priority
+        : "medium";
       const task = await createTask({
         title,
         description: opts.description,
@@ -196,9 +199,11 @@ export function registerTasksCli(program: Command) {
         Pick<Task, "title" | "description" | "status" | "priority" | "error" | "progress">
       > = {};
       if (opts.status) {
-        if (!VALID_STATUSES.has(opts.status)) {
+        if (!VALID_TASK_STATUSES.has(opts.status)) {
           console.error(
-            chalk.red(`Invalid status: ${opts.status}. Valid: ${[...VALID_STATUSES].join(", ")}`),
+            chalk.red(
+              `Invalid status: ${opts.status}. Valid: ${[...VALID_TASK_STATUSES].join(", ")}`,
+            ),
           );
           process.exitCode = 1;
           return;
@@ -206,10 +211,10 @@ export function registerTasksCli(program: Command) {
         updates.status = opts.status as TaskStatus;
       }
       if (opts.priority) {
-        if (!VALID_PRIORITIES.has(opts.priority)) {
+        if (!VALID_TASK_PRIORITIES.has(opts.priority)) {
           console.error(
             chalk.red(
-              `Invalid priority: ${opts.priority}. Valid: ${[...VALID_PRIORITIES].join(", ")}`,
+              `Invalid priority: ${opts.priority}. Valid: ${[...VALID_TASK_PRIORITIES].join(", ")}`,
             ),
           );
           process.exitCode = 1;
