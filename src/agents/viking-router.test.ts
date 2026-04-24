@@ -575,7 +575,7 @@ describe("viking-router", () => {
       expect(result!.skillsMode).toBe("names");
       expect(result!.needsL1).toBe(false);
       expect(result!.needsL2).toBe(false);
-      expect(result!.files.size).toBe(0);
+      expect(result!.files.size).toBe(3);
       expect(result!.tools.has("read") || result!.tools.has("exec")).toBe(true);
     });
 

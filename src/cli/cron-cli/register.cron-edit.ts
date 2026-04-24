@@ -5,6 +5,7 @@ import { sanitizeAgentId } from "../../routing/session-key.js";
 import { defaultRuntime } from "../../runtime.js";
 import { addGatewayClientOptions, callGatewayFromCli } from "../gateway-rpc.js";
 import {
+  cliErrorMessage,
   getCronChannelOptions,
   parseAt,
   parseDurationMs,
@@ -253,7 +254,7 @@ export function registerCronEditCommand(cron: Command) {
           defaultRuntime.log(JSON.stringify(res, null, 2));
           await warnIfCronSchedulerDisabled(opts);
         } catch (err) {
-          defaultRuntime.error(danger(String(err)));
+          defaultRuntime.error(danger(cliErrorMessage(err)));
           defaultRuntime.exit(1);
         }
       }),

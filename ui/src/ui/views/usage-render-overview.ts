@@ -18,7 +18,10 @@ import {
 } from "./usageTypes.ts";
 
 function pct(part: number, total: number): number {
-  if (total === 0) {
+  if (!Number.isFinite(total) || total === 0) {
+    return 0;
+  }
+  if (!Number.isFinite(part)) {
     return 0;
   }
   return (part / total) * 100;
@@ -180,7 +183,7 @@ function renderDailyChartCompact(
         <div class="daily-chart-bars" style="--bar-max-width: ${barMaxWidth}px">
           ${daily.map((d, idx) => {
             const value = values[idx];
-            const heightPct = (value / maxValue) * 100;
+            const heightPct = Number.isFinite(value / maxValue) ? (value / maxValue) * 100 : 0;
             const isSelected = selectedDays.includes(d.date);
             const label = formatDayLabel(d.date);
             // Shorter label for many days (just day number)
@@ -237,7 +240,7 @@ function renderDailyChartCompact(
                               (seg) => html`
                                 <div
                                   class="cost-segment ${seg.class}"
-                                  style="height: ${(seg.value / total) * 100}%"
+                                  style="height: ${Number.isFinite(seg.value / total) ? (seg.value / total) * 100 : 0}%"
                                 ></div>
                               `,
                             );

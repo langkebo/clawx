@@ -393,7 +393,9 @@ export async function runEmbeddedAttempt(
           timeline: l0Result.rawTimeline || undefined,
         }));
     } catch (err) {
-      log.warn(`[viking] routing failed, falling back to all tools: ${String(err)}`);
+      log.warn(
+        `[viking] routing failed, falling back to all tools: ${err instanceof Error ? err.message : "unknown"}`,
+      );
       routingDecision = {
         tools: new Set(toolsRaw.map((t) => t.name)),
         files: new Set(vikingFileNames),
@@ -921,8 +923,10 @@ export async function runEmbeddedAttempt(
             if (sessionL1Result.available) {
               sessionL1Text = sessionL1Result.prompt;
             }
-          } catch {
-            // L1 加载失败不影响主流程
+          } catch (err) {
+            log.debug(
+              `L1 decisions load failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
           }
 
           // 如果没有 L1 可用，fallback：对历史 toolResult 做简单截断压缩
@@ -1174,7 +1178,9 @@ export async function runEmbeddedAttempt(
                 hookCtx,
               )
               .catch((hookErr: unknown) => {
-                log.warn(`before_prompt_build hook failed: ${String(hookErr)}`);
+                log.warn(
+                  `before_prompt_build hook failed: ${hookErr instanceof Error ? hookErr.message : String(hookErr)}`,
+                );
                 return undefined;
               })
           : undefined;
@@ -1189,7 +1195,7 @@ export async function runEmbeddedAttempt(
               )
               .catch((hookErr: unknown) => {
                 log.warn(
-                  `before_agent_start hook (legacy prompt build path) failed: ${String(hookErr)}`,
+                  `before_agent_start hook (legacy prompt build path) failed: ${hookErr instanceof Error ? hookErr.message : String(hookErr)}`,
                 );
                 return undefined;
               })
@@ -1312,7 +1318,9 @@ export async function runEmbeddedAttempt(
                 },
               )
               .catch((err) => {
-                log.warn(`llm_input hook failed: ${String(err)}`);
+                log.warn(
+                  `llm_input hook failed: ${err instanceof Error ? err.message : "unknown"}`,
+                );
               });
           }
 
@@ -1401,7 +1409,9 @@ export async function runEmbeddedAttempt(
                 );
               }
             } catch (reRouteErr) {
-              log.warn(`[viking] P1 post-compact re-route failed: ${String(reRouteErr)}`);
+              log.warn(
+                `[viking] P1 post-compact re-route failed: ${reRouteErr instanceof Error ? reRouteErr.message : "unknown"}`,
+              );
             }
           }
         }
@@ -1456,7 +1466,9 @@ export async function runEmbeddedAttempt(
               error: describeUnknownError(promptError),
             });
           } catch (entryErr) {
-            log.warn(`failed to persist prompt error entry: ${String(entryErr)}`);
+            log.warn(
+              `failed to persist prompt error entry: ${entryErr instanceof Error ? entryErr.message : "unknown"}`,
+            );
           }
         }
 
@@ -1511,7 +1523,7 @@ export async function runEmbeddedAttempt(
           // Log at error level to ensure visibility, but don't rethrow in finally block
           // as it would mask any exception from the try block above.
           log.error(
-            `CRITICAL: unsubscribe failed, possible resource leak: runId=${params.runId} ${String(err)}`,
+            `CRITICAL: unsubscribe failed, possible resource leak: runId=${params.runId} ${err instanceof Error ? err.message : "unknown"}`,
           );
         }
         clearActiveEmbeddedRun(params.sessionId, queueHandle, params.sessionKey);
@@ -1551,7 +1563,7 @@ export async function runEmbeddedAttempt(
             },
           )
           .catch((err) => {
-            log.warn(`llm_output hook failed: ${String(err)}`);
+            log.warn(`llm_output hook failed: ${err instanceof Error ? err.message : "unknown"}`);
           });
       }
 
@@ -1569,8 +1581,10 @@ export async function runEmbeddedAttempt(
                 texts.push(msg.content);
               }
             }
-          } catch {
-            /* ignore */
+          } catch (err) {
+            log.debug(
+              `assistant text collection failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
           }
           return texts;
         })(),

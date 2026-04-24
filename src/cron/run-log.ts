@@ -20,7 +20,11 @@ export type CronRunLogEntry = {
 export function resolveCronRunLogPath(params: { storePath: string; jobId: string }) {
   const storePath = path.resolve(params.storePath);
   const dir = path.dirname(storePath);
-  const hasInvalidJobId = params.jobId.includes("/") || params.jobId.includes("\\") || params.jobId.includes("..") || Array.from(params.jobId).some((c) => c.charCodeAt(0) <= 0x1f);
+  const hasInvalidJobId =
+    params.jobId.includes("/") ||
+    params.jobId.includes("\\") ||
+    params.jobId.includes("..") ||
+    Array.from(params.jobId).some((c) => c.charCodeAt(0) <= 0x1f);
   if (hasInvalidJobId) {
     throw new Error("Invalid jobId");
   }

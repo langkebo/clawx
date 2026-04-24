@@ -7,6 +7,7 @@ import type { GatewayRpcOpts } from "../gateway-rpc.js";
 import { addGatewayClientOptions, callGatewayFromCli } from "../gateway-rpc.js";
 import { parsePositiveIntOrUndefined } from "../program/helpers.js";
 import {
+  cliErrorMessage,
   getCronChannelOptions,
   parseAt,
   parseDurationMs,
@@ -25,7 +26,7 @@ export function registerCronStatusCommand(cron: Command) {
           const res = await callGatewayFromCli("cron.status", opts, {});
           defaultRuntime.log(JSON.stringify(res, null, 2));
         } catch (err) {
-          defaultRuntime.error(danger(String(err)));
+          defaultRuntime.error(danger(cliErrorMessage(err)));
           defaultRuntime.exit(1);
         }
       }),
@@ -51,7 +52,7 @@ export function registerCronListCommand(cron: Command) {
           const jobs = (res as { jobs?: CronJob[] } | null)?.jobs ?? [];
           printCronList(jobs, defaultRuntime);
         } catch (err) {
-          defaultRuntime.error(danger(String(err)));
+          defaultRuntime.error(danger(cliErrorMessage(err)));
           defaultRuntime.exit(1);
         }
       }),
@@ -267,7 +268,7 @@ export function registerCronAddCommand(cron: Command) {
           defaultRuntime.log(JSON.stringify(res, null, 2));
           await warnIfCronSchedulerDisabled(opts);
         } catch (err) {
-          defaultRuntime.error(danger(String(err)));
+          defaultRuntime.error(danger(cliErrorMessage(err)));
           defaultRuntime.exit(1);
         }
       }),

@@ -137,7 +137,11 @@ export function createActiveMemorySaveTool(options: {
       const content = readStringParam(params, "content", { required: true });
       const category = readStringParam(params, "category") ?? "fact";
 
-      const hasInvalidChars = category.includes("/") || category.includes("\\") || category.includes("..") || Array.from(category).some((c) => c.charCodeAt(0) <= 0x1f);
+      const hasInvalidChars =
+        category.includes("/") ||
+        category.includes("\\") ||
+        category.includes("..") ||
+        Array.from(category).some((c) => c.charCodeAt(0) <= 0x1f);
       if (hasInvalidChars) {
         return jsonResult({ saved: false, error: "Invalid category name" });
       }

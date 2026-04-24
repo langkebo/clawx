@@ -8,6 +8,13 @@ import { colorize, isRich, theme } from "../../terminal/theme.js";
 import type { GatewayRpcOpts } from "../gateway-rpc.js";
 import { callGatewayFromCli } from "../gateway-rpc.js";
 
+export function cliErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message;
+  }
+  return String(err);
+}
+
 export const getCronChannelOptions = () =>
   ["last", ...listChannelPlugins().map((plugin) => plugin.id)].join("|");
 

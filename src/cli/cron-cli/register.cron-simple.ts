@@ -2,7 +2,7 @@ import type { Command } from "commander";
 import { danger } from "../../globals.js";
 import { defaultRuntime } from "../../runtime.js";
 import { addGatewayClientOptions, callGatewayFromCli } from "../gateway-rpc.js";
-import { warnIfCronSchedulerDisabled } from "./shared.js";
+import { cliErrorMessage, warnIfCronSchedulerDisabled } from "./shared.js";
 
 function registerCronToggleCommand(params: {
   cron: Command;
@@ -24,7 +24,7 @@ function registerCronToggleCommand(params: {
           defaultRuntime.log(JSON.stringify(res, null, 2));
           await warnIfCronSchedulerDisabled(opts);
         } catch (err) {
-          defaultRuntime.error(danger(String(err)));
+          defaultRuntime.error(danger(cliErrorMessage(err)));
           defaultRuntime.exit(1);
         }
       }),
@@ -45,7 +45,7 @@ export function registerCronSimpleCommands(cron: Command) {
           const res = await callGatewayFromCli("cron.remove", opts, { id });
           defaultRuntime.log(JSON.stringify(res, null, 2));
         } catch (err) {
-          defaultRuntime.error(danger(String(err)));
+          defaultRuntime.error(danger(cliErrorMessage(err)));
           defaultRuntime.exit(1);
         }
       }),
@@ -81,7 +81,7 @@ export function registerCronSimpleCommands(cron: Command) {
           });
           defaultRuntime.log(JSON.stringify(res, null, 2));
         } catch (err) {
-          defaultRuntime.error(danger(String(err)));
+          defaultRuntime.error(danger(cliErrorMessage(err)));
           defaultRuntime.exit(1);
         }
       }),
@@ -101,7 +101,7 @@ export function registerCronSimpleCommands(cron: Command) {
           });
           defaultRuntime.log(JSON.stringify(res, null, 2));
         } catch (err) {
-          defaultRuntime.error(danger(String(err)));
+          defaultRuntime.error(danger(cliErrorMessage(err)));
           defaultRuntime.exit(1);
         }
       }),

@@ -304,7 +304,10 @@ export function buildGatewayCronService(params: {
           provider: evt.provider,
           usage: evt.usage,
         }).catch((err) => {
-          cronLogger.warn({ err: String(err), logPath }, "cron: run log append failed");
+          cronLogger.warn(
+            { err: err instanceof Error ? err.message : String(err), logPath },
+            "cron: run log append failed",
+          );
         });
       }
     },

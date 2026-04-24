@@ -7,6 +7,20 @@ import { createSubsystemLogger } from "../logging/subsystem.js";
 
 const log = createSubsystemLogger("tasks");
 
+const taskLocks = new Map<string, Promise<unknown>>();
+
+function withTaskLock<T>(taskId: string, fn: () => Promise<T>): Promise<T> {
+  const prev = taskLocks.get(taskId) ?? Promise.resolve();
+  const next = prev.then(fn, fn);
+  taskLocks.set(taskId, next);
+  void next.finally(() => {
+    if (taskLocks.get(taskId) === next) {
+      taskLocks.delete(taskId);
+    }
+  });
+  return next;
+}
+
 export type TaskStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 export type TaskPriority = "low" | "medium" | "high";
 
@@ -126,7 +140,17 @@ export async function createTask(params: {
     parentTaskId: params.parentTaskId,
     metadata: params.metadata,
   };
-  await fs.writeFile(getTaskFilePath(task.id), JSON.stringify(task, null, 2), "utf-8");
+  const targetPath = getTaskFilePath(task.id);
+  const tmpPath = `${targetPath}.tmp`;
+  await fs.writeFile(tmpPath, JSON.stringify(task, null, 2), "utf-8");
+  try {
+    await fs.rename(tmpPath, targetPath);
+  } catch (err) {
+    try {
+      await fs.unlink(tmpPath);
+    } catch {}
+    throw err;
+  }
   log.info(`task created: ${task.id} "${task.title}"`);
   return task;
 }
@@ -166,26 +190,38 @@ export async function updateTask(
     log.warn(`invalid taskId format rejected: ${taskId.slice(0, 20)}`);
     return null;
   }
-  const task = await getTask(taskId);
-  if (!task) {
-    return null;
-  }
-  const now = Date.now();
-  const updated: Task = {
-    ...task,
-    ...updates,
-    updatedAt: now,
-    startedAt: updates.status === "running" && !task.startedAt ? now : task.startedAt,
-    completedAt:
-      updates.status === "completed" ||
-      updates.status === "failed" ||
-      updates.status === "cancelled"
-        ? now
-        : task.completedAt,
-  };
-  await fs.writeFile(getTaskFilePath(updated.id), JSON.stringify(updated, null, 2), "utf-8");
-  log.info(`task updated: ${updated.id} status=${updated.status}`);
-  return updated;
+  return withTaskLock(taskId, async () => {
+    const task = await getTask(taskId);
+    if (!task) {
+      return null;
+    }
+    const now = Date.now();
+    const updated: Task = {
+      ...task,
+      ...updates,
+      updatedAt: now,
+      startedAt: updates.status === "running" && !task.startedAt ? now : task.startedAt,
+      completedAt:
+        updates.status === "completed" ||
+        updates.status === "failed" ||
+        updates.status === "cancelled"
+          ? now
+          : task.completedAt,
+    };
+    const targetPath = getTaskFilePath(updated.id);
+    const tmpPath = `${targetPath}.tmp`;
+    await fs.writeFile(tmpPath, JSON.stringify(updated, null, 2), "utf-8");
+    try {
+      await fs.rename(tmpPath, targetPath);
+    } catch (err) {
+      try {
+        await fs.unlink(tmpPath);
+      } catch {}
+      throw err;
+    }
+    log.info(`task updated: ${updated.id} status=${updated.status}`);
+    return updated;
+  });
 }
 
 export async function deleteTask(taskId: string): Promise<boolean> {
@@ -193,17 +229,25 @@ export async function deleteTask(taskId: string): Promise<boolean> {
     log.warn(`invalid taskId format rejected: ${taskId.slice(0, 20)}`);
     return false;
   }
-  try {
-    await fs.unlink(getTaskFilePath(taskId));
-    log.info(`task deleted: ${taskId}`);
-    return true;
-  } catch (err: unknown) {
-    if (err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT") {
+  return withTaskLock(taskId, async () => {
+    try {
+      await fs.unlink(getTaskFilePath(taskId));
+      log.info(`task deleted: ${taskId}`);
+      return true;
+    } catch (err: unknown) {
+      if (
+        err instanceof Error &&
+        "code" in err &&
+        (err as NodeJS.ErrnoException).code === "ENOENT"
+      ) {
+        return false;
+      }
+      log.warn(
+        `task delete failed: ${taskId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
       return false;
     }
-    log.warn(`task delete failed: ${taskId}: ${err instanceof Error ? err.message : String(err)}`);
-    return false;
-  }
+  });
 }
 
 export async function listTasks(options?: {
@@ -293,8 +337,10 @@ export async function cleanupOldTasks(maxAgeMs: number = 7 * 24 * 60 * 60 * 1000
     if (task.status !== "running" && task.status !== "pending") {
       const taskTime = task.completedAt ?? task.updatedAt ?? task.createdAt;
       if (taskTime && taskTime < cutoff) {
-        await deleteTask(task.id);
-        deleted++;
+        const ok = await deleteTask(task.id);
+        if (ok) {
+          deleted++;
+        }
       }
     }
   }

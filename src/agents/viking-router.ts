@@ -1138,7 +1138,7 @@ export async function vikingRouteWithFeedback(params: {
     }
     return {
       tools: reducedTools.size > 0 ? reducedTools : fb.routeResult.tools,
-      files: new Set<string>(),
+      files: new Set<string>(["SOUL.md", "IDENTITY.md", "USER.md"]),
       promptLayer: "L0" as PromptMode,
       skillsMode: "names",
       skipped: false,
@@ -1373,13 +1373,19 @@ export function tryRuleBasedRoute(context: {
   }
 
   const tools = expandPacks(rule.apply.packs);
+  const files = new Set<string>(["SOUL.md", "IDENTITY.md", "USER.md"]);
+  if (rule.when.filePatterns && Array.isArray(rule.when.filePatterns)) {
+    for (const pattern of rule.when.filePatterns) {
+      files.add(pattern);
+    }
+  }
   log.info(
     `[viking] rule-based route matched: packs=[${rule.apply.packs.join(",")}] mode=${rule.apply.promptMode}`,
   );
 
   return {
     tools,
-    files: new Set<string>(),
+    files,
     promptLayer: rule.apply.promptMode,
     skillsMode: "names",
     skipped: false,
