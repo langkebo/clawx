@@ -55,6 +55,7 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
     emittedAssistantUpdate: false,
     lastStreamedReasoning: undefined,
     lastBlockReplyText: undefined,
+    allBlockReplyText: "",
     assistantMessageIndex: 0,
     lastAssistantTextMessageIndex: -1,
     lastAssistantTextNormalized: undefined,
@@ -115,6 +116,7 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
     state.lastStreamedAssistantCleaned = undefined;
     state.emittedAssistantUpdate = false;
     state.lastBlockReplyText = undefined;
+    state.allBlockReplyText = "";
     state.lastStreamedReasoning = undefined;
     state.lastReasoningSent = undefined;
     state.suppressBlockChunks = false;
@@ -493,6 +495,7 @@ export function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSessionPar
     }
 
     state.lastBlockReplyText = chunk;
+    state.allBlockReplyText += chunk;
     assistantTexts.push(chunk);
     rememberAssistantText(chunk);
     if (!params.onBlockReply) {

@@ -39,6 +39,7 @@ import {
 import type { GatewayRequestHandlers, RespondFn } from "./types.js";
 
 const COST_USAGE_CACHE_TTL_MS = 30_000;
+const COST_USAGE_CACHE_MAX_SIZE = 64;
 
 type DateRange = { startMs: number; endMs: number };
 
@@ -230,6 +231,15 @@ async function loadCostUsageSummaryCached(params: {
 
   entry.inFlight = inFlight;
   costUsageCache.set(cacheKey, entry);
+
+  while (costUsageCache.size > COST_USAGE_CACHE_MAX_SIZE) {
+    const oldest = costUsageCache.keys().next().value;
+    if (oldest !== undefined) {
+      costUsageCache.delete(oldest);
+    } else {
+      break;
+    }
+  }
 
   if (entry.summary) {
     return entry.summary;

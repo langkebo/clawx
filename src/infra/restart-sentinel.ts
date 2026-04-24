@@ -69,7 +69,16 @@ export async function writeRestartSentinel(
   const filePath = resolveRestartSentinelPath(env);
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   const data: RestartSentinel = { version: 1, payload };
-  await fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, "utf-8");
+  const tmpPath = `${filePath}.tmp`;
+  await fs.writeFile(tmpPath, `${JSON.stringify(data, null, 2)}\n`, "utf-8");
+  try {
+    await fs.rename(tmpPath, filePath);
+  } catch (err) {
+    try {
+      await fs.unlink(tmpPath);
+    } catch {}
+    throw err;
+  }
   return filePath;
 }
 

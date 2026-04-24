@@ -60,10 +60,6 @@ export function createActiveMemoryRecallTool(options: {
   agentSessionKey?: string;
 }): AnyAgentTool | null {
   const ctx = resolveMemoryContext(options);
-  if (!ctx) {
-    return null;
-  }
-  const { cfg, agentId } = ctx;
 
   return {
     label: "Active Memory Recall",
@@ -72,6 +68,16 @@ export function createActiveMemoryRecallTool(options: {
       "Automatically recall prior context: searches MEMORY.md + memory/*.md for information about a person, project, decision, preference, or past event. Call this BEFORE answering questions about anything the user may have mentioned before.",
     parameters: ActiveMemoryRecallSchema,
     execute: async (_toolCallId, params) => {
+      if (!ctx) {
+        return jsonResult({
+          recalled: false,
+          results: [],
+          disabled: true,
+          error: "Memory search is not configured for this session",
+        });
+      }
+
+      const { cfg, agentId } = ctx;
       const topic = readStringParam(params, "topic", { required: true });
       const context = readStringParam(params, "context");
       const query = context ? `${topic} ${context}` : topic;
@@ -122,10 +128,6 @@ export function createActiveMemorySaveTool(options: {
   agentSessionKey?: string;
 }): AnyAgentTool | null {
   const ctx = resolveMemoryContext(options);
-  if (!ctx) {
-    return null;
-  }
-  const { cfg, agentId } = ctx;
 
   return {
     label: "Active Memory Save",
@@ -134,6 +136,15 @@ export function createActiveMemorySaveTool(options: {
       "Proactively save a user preference, decision, or important fact to MEMORY.md for future recall. Use this when the user expresses a clear preference, makes a decision, or shares information worth remembering.",
     parameters: ActiveMemorySaveSchema,
     execute: async (_toolCallId, params) => {
+      if (!ctx) {
+        return jsonResult({
+          saved: false,
+          disabled: true,
+          error: "Memory search is not configured for this session",
+        });
+      }
+
+      const { cfg, agentId } = ctx;
       const content = readStringParam(params, "content", { required: true });
       const category = readStringParam(params, "category") ?? "fact";
 

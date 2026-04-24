@@ -107,6 +107,9 @@ function redactText(text: string, patterns: RegExp[]): string {
   return next;
 }
 
+let cachedRedaction: { opts: RedactOptions; patterns: RegExp[]; ts: number } | null = null;
+const REDACTION_CACHE_TTL_MS = 5000;
+
 function resolveConfigRedaction(): RedactOptions {
   let cfg: OpenClawConfig["logging"] | undefined;
   try {
@@ -123,6 +126,21 @@ function resolveConfigRedaction(): RedactOptions {
   };
 }
 
+function getCompiledPatterns(opts: RedactOptions): RegExp[] {
+  const now = Date.now();
+  if (
+    cachedRedaction &&
+    now - cachedRedaction.ts < REDACTION_CACHE_TTL_MS &&
+    cachedRedaction.opts.mode === opts.mode &&
+    cachedRedaction.opts.patterns === opts.patterns
+  ) {
+    return cachedRedaction.patterns;
+  }
+  const patterns = resolvePatterns(opts.patterns);
+  cachedRedaction = { opts, patterns, ts: now };
+  return patterns;
+}
+
 export function redactSensitiveText(text: string, options?: RedactOptions): string {
   if (!text) {
     return text;
@@ -131,7 +149,7 @@ export function redactSensitiveText(text: string, options?: RedactOptions): stri
   if (normalizeMode(resolved.mode) === "off") {
     return text;
   }
-  const patterns = resolvePatterns(resolved.patterns);
+  const patterns = getCompiledPatterns(resolved);
   if (!patterns.length) {
     return text;
   }

@@ -308,10 +308,11 @@ export function handleMessageEnd(
     text &&
     onBlockReply
   ) {
+    const allBlockText = ctx.state.allBlockReplyText;
     if (ctx.blockChunker?.hasBuffered()) {
       ctx.blockChunker.drain({ force: true, emit: ctx.emitBlockChunk });
       ctx.blockChunker.reset();
-    } else if (text !== ctx.state.lastBlockReplyText) {
+    } else if (text !== ctx.state.lastBlockReplyText && text !== allBlockText) {
       // Check for duplicates before emitting (same logic as emitBlockChunk).
       const normalizedText = normalizeTextForComparison(text);
       if (
